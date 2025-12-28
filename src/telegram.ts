@@ -19,6 +19,20 @@ interface TelegramUpdate {
     };
     text?: string;
   };
+  callback_query?: {
+    id: string;
+    from: {
+      id: number;
+      first_name?: string;
+      username?: string;
+    };
+    message?: {
+      chat: {
+        id: number;
+      };
+    };
+    data?: string;
+  };
 }
 
 export class TelegramBot {
@@ -40,14 +54,15 @@ export class TelegramBot {
     this.plantId = plantId;
   }
 
-  async sendMessage(chatId: string, text: string): Promise<TelegramResponse> {
+  async sendMessage(chatId: string, text: string, replyMarkup?: any): Promise<TelegramResponse> {
     try {
       const response: AxiosResponse<TelegramResponse> = await axios.post(
         `${this.apiUrl}/sendMessage`,
         {
           chat_id: chatId,
           text: text,
-          parse_mode: 'HTML'
+          parse_mode: 'HTML',
+          reply_markup: replyMarkup
         }
       );
 
@@ -59,6 +74,24 @@ export class TelegramBot {
       }
       throw error;
     }
+  }
+
+  private getMainMenu(): any {
+    return {
+      inline_keyboard: [
+        [
+          { text: '📊 Inverter Info', callback_data: 'info' },
+          { text: '📈 Status', callback_data: 'status' }
+        ],
+        [
+          { text: '✅ Subscribe', callback_data: 'subscribe' },
+          { text: '❌ Unsubscribe', callback_data: 'unsubscribe' }
+        ],
+        [
+          { text: 'ℹ️ Help', callback_data: 'help' }
+        ]
+      ]
+    };
   }
 
   async broadcastMessage(text: string): Promise<void> {
@@ -78,13 +111,35 @@ export class TelegramBot {
   }
 
   async notifyElectricityAppeared(gridPower: number): Promise<void> {
-    const message = `⚡ <b>Electricity Appeared!</b>\n\nGrid Power: ${gridPower.toFixed(2)} W\nTime: ${new Date().toLocaleString()}`;
-    await this.broadcastMessage(message);
+    const message = `⚡ <b>Electricity Appeared!</b>\n\nGrid Power: ${gridPower.toFixed(2)} W\nTime: ${new Date().toLocaleString()}\n\nUse /info to see full inverter status.`;
+    const keyboard = {
+      inline_keyboard: [[{ text: '📊 View Inverter Info', callback_data: 'info' }]]
+    };
+    await this.broadcastMessageWithKeyboard(message, keyboard);
   }
 
   async notifyElectricityDisappeared(): Promise<void> {
-    const message = `🔌 <b>Electricity Disappeared!</b>\n\nTime: ${new Date().toLocaleString()}`;
-    await this.broadcastMessage(message);
+    const message = `🔌 <b>Electricity Disappeared!</b>\n\nTime: ${new Date().toLocaleString()}\n\nUse /info to see full inverter status.`;
+    const keyboard = {
+      inline_keyboard: [[{ text: '📊 View Inverter Info', callback_data: 'info' }]]
+    };
+    await this.broadcastMessageWithKeyboard(message, keyboard);
+  }
+
+  private async broadcastMessageWithKeyboard(text: string, replyMarkup: any): Promise<void> {
+    const chatIds = this.subscribers.getAll();
+    if (chatIds.length === 0) {
+      console.log('No subscribers to notify');
+      return;
+    }
+
+    console.log(`Broadcasting to ${chatIds.length} subscriber(s)...`);
+    const promises = chatIds.map(chatId => 
+      this.sendMessage(chatId, text, replyMarkup).catch(error => {
+        console.error(`Failed to send to ${chatId}:`, error.message);
+      })
+    );
+    await Promise.all(promises);
   }
 
   async handleUpdates(): Promise<void> {
@@ -95,7 +150,7 @@ export class TelegramBot {
           params: {
             offset: this.lastUpdateId + 1,
             timeout: 10,
-            allowed_updates: ['message']
+            allowed_updates: ['message', 'callback_query']
           },
           timeout: 12000
         }
@@ -107,42 +162,50 @@ export class TelegramBot {
             this.lastUpdateId = update.update_id;
           }
 
-          if (update.message?.text && update.message?.chat) {
+          if (update.callback_query) {
+            const chatId = update.callback_query.message?.chat.id.toString() || update.callback_query.from.id.toString();
+            const data = update.callback_query.data;
+            const userName = update.callback_query.from.first_name || update.callback_query.from.username || 'User';
+
+            try {
+              await axios.post(`${this.apiUrl}/answerCallbackQuery`, {
+                callback_query_id: update.callback_query.id
+              });
+
+              if (data === 'info') {
+                await this.sendInverterInfo(chatId);
+              } else if (data === 'status') {
+                await this.handleStatusCommand(chatId);
+              } else if (data === 'subscribe') {
+                await this.handleSubscribe(chatId, userName);
+              } else if (data === 'unsubscribe') {
+                await this.handleUnsubscribe(chatId, userName);
+              } else if (data === 'help') {
+                await this.sendHelp(chatId);
+              } else if (data === 'menu') {
+                await this.sendMessage(chatId, '🏠 <b>Main Menu</b>\n\nSelect an option:', this.getMainMenu());
+              }
+            } catch (cmdError: any) {
+              console.error(`Error processing callback from ${chatId}:`, cmdError.message);
+            }
+          } else if (update.message?.text && update.message?.chat) {
             const chatId = update.message.chat.id.toString();
             const text = update.message.text.trim().toLowerCase();
             const userName = update.message.chat.first_name || update.message.chat.username || 'User';
 
             try {
               if (text === '/start') {
-                const added = this.subscribers.add(chatId);
-                if (added) {
-                  await this.sendMessage(chatId, `✅ <b>Subscribed!</b>\n\nYou will now receive electricity status notifications.\n\nUse /stop to unsubscribe.`);
-                  console.log(`User ${userName} (${chatId}) subscribed. Total subscribers: ${this.subscribers.count()}`);
-                } else {
-                  await this.sendMessage(chatId, `You are already subscribed! Use /stop to unsubscribe.`);
-                }
+                await this.handleSubscribe(chatId, userName);
               } else if (text === '/stop') {
-                const removed = this.subscribers.remove(chatId);
-                if (removed) {
-                  await this.sendMessage(chatId, `❌ <b>Unsubscribed</b>\n\nYou will no longer receive notifications.\n\nUse /start to subscribe again.`);
-                  console.log(`User ${userName} (${chatId}) unsubscribed. Total subscribers: ${this.subscribers.count()}`);
-                } else {
-                  await this.sendMessage(chatId, `You are not subscribed. Use /start to subscribe.`);
-                }
+                await this.handleUnsubscribe(chatId, userName);
               } else if (text === '/status') {
-                const isSubscribed = this.subscribers.has(chatId);
-                const totalSubscribers = this.subscribers.count();
-                await this.sendMessage(chatId, 
-                  `📊 <b>Subscription Status</b>\n\n` +
-                  `Your subscription: ${isSubscribed ? '✅ Active' : '❌ Not subscribed'}\n` +
-                  `Total subscribers: ${totalSubscribers}\n\n` +
-                  `Use /start to subscribe\n` +
-                  `Use /stop to unsubscribe`
-                );
+                await this.handleStatusCommand(chatId);
               } else if (text === '/info' || text === '/inverter') {
                 await this.sendInverterInfo(chatId);
               } else if (text === '/help') {
                 await this.sendHelp(chatId);
+              } else if (text === '/menu') {
+                await this.sendMessage(chatId, '🏠 <b>Main Menu</b>\n\nSelect an option:', this.getMainMenu());
               }
             } catch (cmdError: any) {
               console.error(`Error processing command from ${chatId}:`, cmdError.message);
@@ -195,8 +258,9 @@ export class TelegramBot {
       const status = await this.luxpower.checkElectricityStatus(this.plantId);
       const data = status.rawData;
 
-      const gridVoltage = data.vact ? (data.vact / 100).toFixed(1) : '0.0';
-      const gridFrequency = data.fac ? (data.fac / 100).toFixed(2) : '0.00';
+      const vact = data.vact || 0;
+      const vacr = data.vacr || 0;
+      const gridVoltage = vact > 0 ? (vact / 73).toFixed(1) : (vacr > 0 ? (vacr / 73).toFixed(1) : '0.0');
       const powerToGrid = data.pToGrid || 0;
       const powerToUser = data.pToUser || 0;
       const batterySOC = data.soc || 0;
@@ -222,12 +286,12 @@ export class TelegramBot {
       message += `📅 <b>Time:</b> ${deviceTime}\n`;
       message += `🔄 <b>System Status:</b> ${statusText}\n\n`;
       
-      message += `🔌 <b>Grid</b>\n`;
-      message += `   Status: ${electricityStatus}\n`;
+      message += `🔌 <b>Grid Status</b>\n`;
+      message += `   Electricity: ${electricityStatus}\n`;
       message += `   Voltage: ${gridVoltage} V\n`;
-      message += `   Frequency: ${gridFrequency} Hz\n`;
-      message += `   To Grid: ${powerToGrid} W\n`;
-      message += `   To User: ${powerToUser} W\n\n`;
+      message += `   Consumption: ${consumptionPower} W\n`;
+      message += `   GRID: ${powerToUser} W\n`;
+      message += `\n`;
 
       message += `🔋 <b>Battery</b>\n`;
       message += `   Status: ${batteryStatus}\n`;
@@ -254,26 +318,76 @@ export class TelegramBot {
       if (epsPower > 0) {
         message += `   EPS Backup: ${epsPower} W\n`;
       }
-      if (consumptionPower > 0) {
-        message += `   Consumption: ${consumptionPower} W\n`;
-      }
 
-      await this.sendMessage(chatId, message);
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '🔄 Refresh', callback_data: 'info' }],
+          [{ text: '🏠 Main Menu', callback_data: 'menu' }]
+        ]
+      };
+
+      await this.sendMessage(chatId, message, keyboard);
     } catch (error: any) {
       await this.sendMessage(chatId, `❌ Error fetching inverter information: ${error.message}`);
       console.error('Error sending inverter info:', error.message);
     }
   }
 
+  private async handleSubscribe(chatId: string, userName: string): Promise<void> {
+    const added = this.subscribers.add(chatId);
+    if (added) {
+      await this.sendMessage(
+        chatId,
+        `✅ <b>Subscribed!</b>\n\nYou will now receive electricity status notifications.\n\nUse the buttons below to interact with the bot.`,
+        this.getMainMenu()
+      );
+      console.log(`User ${userName} (${chatId}) subscribed. Total subscribers: ${this.subscribers.count()}`);
+    } else {
+      await this.sendMessage(
+        chatId,
+        `You are already subscribed! Use the buttons below to interact with the bot.`,
+        this.getMainMenu()
+      );
+    }
+  }
+
+  private async handleUnsubscribe(chatId: string, userName: string): Promise<void> {
+    const removed = this.subscribers.remove(chatId);
+    if (removed) {
+      await this.sendMessage(
+        chatId,
+        `❌ <b>Unsubscribed</b>\n\nYou will no longer receive notifications.\n\nUse /start to subscribe again.`
+      );
+      console.log(`User ${userName} (${chatId}) unsubscribed. Total subscribers: ${this.subscribers.count()}`);
+    } else {
+      await this.sendMessage(chatId, `You are not subscribed. Use /start to subscribe.`);
+    }
+  }
+
+  private async handleStatusCommand(chatId: string): Promise<void> {
+    const isSubscribed = this.subscribers.has(chatId);
+    const totalSubscribers = this.subscribers.count();
+    await this.sendMessage(
+      chatId,
+      `📊 <b>Subscription Status</b>\n\n` +
+      `Your subscription: ${isSubscribed ? '✅ Active' : '❌ Not subscribed'}\n` +
+      `Total subscribers: ${totalSubscribers}`,
+      this.getMainMenu()
+    );
+  }
+
   private async sendHelp(chatId: string): Promise<void> {
     const message = `📖 <b>Available Commands</b>\n\n` +
-      `/start - Subscribe to electricity notifications\n` +
-      `/stop - Unsubscribe from notifications\n` +
-      `/status - Check your subscription status\n` +
-      `/info - Get current inverter status\n` +
-      `/help - Show this help message\n\n` +
+      `<b>Commands:</b>\n` +
+      `/start - Subscribe to notifications\n` +
+      `/stop - Unsubscribe\n` +
+      `/status - Check subscription\n` +
+      `/info - Get inverter status\n` +
+      `/menu - Show main menu\n` +
+      `/help - Show this help\n\n` +
+      `You can also use the buttons below for quick access.\n\n` +
       `The bot will automatically notify you when electricity appears or disappears.`;
     
-    await this.sendMessage(chatId, message);
+    await this.sendMessage(chatId, message, this.getMainMenu());
   }
 }
