@@ -329,7 +329,7 @@ export class TelegramBot {
 
       const vact = data.vact || 0;
       const vacr = data.vacr || 0;
-      const gridVoltage = vact > 0 ? (vact / 73).toFixed(1) : (vacr > 0 ? (vacr / 73).toFixed(1) : '0.0');
+      const gridVoltage = vacr > 0 ? (vacr / 10).toFixed(1) : (vact > 0 ? (vact / 10).toFixed(1) : '0.0');
       const powerToGrid = data.pToGrid || 0;
       const powerToUser = data.pToUser || 0;
       const batterySOC = data.soc || 0;

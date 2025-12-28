@@ -4,15 +4,6 @@ A simple TypeScript service that monitors electricity status via the Luxpower AP
 
 > **Note**: This project was generated using [Cursor AI](https://cursor.sh/). See [NOTICE.md](./NOTICE.md) for more information.
 
-## Features
-
-- ⚡ Automatic electricity status monitoring
-- 📱 Telegram notifications for multiple subscribers
-- 🤖 Interactive bot commands for inverter information
-- 🔄 Real-time status updates
-- 💾 Persistent subscriber management
-- 🌍 Supports EU, US, and AU regions
-
 ## Setup
 
 1. **Install dependencies:**
@@ -26,9 +17,7 @@ A simple TypeScript service that monitors electricity status via the Luxpower AP
    LUXPOWER_PASSWORD=your_password
    LUXPOWER_API_ENDPOINT=https://eu.luxpowertek.com
    LUXPOWER_PLANT_ID=your_plant_id
-
    TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-
    POLL_INTERVAL=60000
    COMMAND_POLL_INTERVAL=5000
    ```
@@ -56,83 +45,37 @@ npm run build
 npm start
 ```
 
-The service will:
-- Poll the Luxpower API at the specified interval (default: 60 seconds)
-- Detect when electricity appears (grid voltage > 180V and frequency 45-55Hz)
-- Detect when electricity disappears
-- Send Telegram notifications to all subscribed users on status changes
-- Handle bot commands from users
+## Docker
+
+Build and run with Docker Compose:
+```bash
+docker compose up -d
+```
+
+Make sure to set `DOCKER_USER` in `docker-compose.yml` or as an environment variable.
 
 ## Bot Commands
 
-Users can interact with the bot using commands or inline buttons:
-
-**Commands:**
 - `/start` - Subscribe to electricity notifications
 - `/stop` - Unsubscribe from notifications
-- `/status` - Check your subscription status
+- `/status` - Check subscription status
 - `/info` or `/inverter` - Get current inverter status (grid, battery, solar, power flow)
 - `/menu` - Show main menu with buttons
 - `/help` - Show all available commands
 
-**Inline Buttons:**
-- 📊 Inverter Info - Get real-time inverter status
-- 📈 Status - Check subscription status
-- ✅ Subscribe - Subscribe to notifications
-- ❌ Unsubscribe - Unsubscribe from notifications
-- ℹ️ Help - Show help menu
-- 🔄 Refresh - Refresh inverter information
-- 🏠 Main Menu - Return to main menu
-
-### Inverter Information
-
-The `/info` command displays real-time data:
+The `/info` command displays:
 - **Grid Status**: Electricity status, voltage, consumption, GRID power
 - **Battery Status**: State of charge (%), voltage, power (charging/discharging)
 - **Solar Input**: PV panel voltages and power for each input
 - **Power Flow**: Inverter output, EPS backup
 - **System Status**: Current system state and device time
 
-All users who send `/start` will automatically receive notifications when electricity appears or disappears. No hardcoded chat IDs needed!
+All users who send `/start` will automatically receive notifications when electricity appears or disappears.
 
 ## Configuration
 
 - `POLL_INTERVAL`: Polling interval in milliseconds (default: 60000 = 60 seconds)
-- `COMMAND_POLL_INTERVAL`: How often to check for bot commands like /start, /stop (default: 5000 = 5 seconds)
+- `COMMAND_POLL_INTERVAL`: How often to check for bot commands (default: 5000 = 5 seconds)
 - `LUXPOWER_API_ENDPOINT`: API endpoint URL (default: https://eu.luxpowertek.com)
-  - Use `https://eu.luxpowertek.com` for European region
-  - Use `https://us.luxpowertek.com` for US region
-  - Use `https://au.luxpowertek.com` for Australian region
 
 Subscribers are automatically saved to `subscribers.json` file (excluded from git).
-
-## Project Structure
-
-```
-luxpower-telegram-alerts/
-├── src/
-│   ├── luxpower.ts      # Luxpower API client
-│   ├── telegram.ts       # Telegram bot service
-│   ├── subscribers.ts    # Subscriber management
-│   └── monitor.ts        # Main monitoring service
-├── package.json
-├── tsconfig.json
-├── .gitignore
-├── NOTICE.md
-└── README.md
-```
-
-## Stopping the Service
-
-Press `Ctrl+C` to gracefully stop the monitoring service.
-
-To kill all running instances:
-```bash
-pkill -f "ts-node.*monitor"
-```
-
-## Troubleshooting
-
-- **409 Conflict Error**: Usually means multiple instances are running. Kill all instances and start only one.
-- **Login Failed**: Check your credentials and API endpoint in `.env` file.
-- **No Notifications**: Make sure users have sent `/start` to subscribe to the bot.

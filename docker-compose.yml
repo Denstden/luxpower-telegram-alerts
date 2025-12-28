@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  luxpower-alerts:
+    image: ${DOCKER_USER:-denst}/luxpower-telegram-alerts:latest
+    container_name: luxpower-alerts
+    restart: unless-stopped
+    volumes:
+      - ./.env:/app/.env:ro
+      - ./subscribers.json:/app/subscribers.json
+      - ./status.json:/app/status.json
+    environment:
+      - NODE_ENV=production
+
