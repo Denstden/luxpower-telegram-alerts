@@ -71,7 +71,7 @@ async function startMonitoring(): Promise<void> {
   console.log(`Plant ID: ${LUXPOWER_PLANT_ID}`);
   console.log(`Subscribers: ${telegram.getSubscriberCount()}`);
 
-  telegram.startCommandPolling(COMMAND_POLL_INTERVAL);
+  await telegram.startCommandPolling(COMMAND_POLL_INTERVAL);
 
   await checkStatus();
 
