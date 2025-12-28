@@ -42,11 +42,22 @@ export class TelegramBot {
   private lastUpdateId: number = 0;
   private luxpower: LuxpowerClient | null = null;
   private plantId: string | null = null;
+  private isPolling: boolean = false;
+  private pollingIntervalId: NodeJS.Timeout | null = null;
 
   constructor(botToken: string) {
     this.botToken = botToken;
     this.apiUrl = `https://api.telegram.org/bot${botToken}`;
     this.subscribers = new SubscribersManager();
+  }
+
+  private async deleteWebhook(): Promise<void> {
+    try {
+      await axios.post(`${this.apiUrl}/deleteWebhook`, { drop_pending_updates: true });
+      console.log('Webhook deleted (if any existed)');
+    } catch (error: any) {
+      console.log('No webhook to delete or error deleting webhook:', error.message);
+    }
   }
 
   setLuxpowerClient(luxpower: LuxpowerClient, plantId: string): void {
@@ -143,6 +154,11 @@ export class TelegramBot {
   }
 
   async handleUpdates(): Promise<void> {
+    if (this.isPolling) {
+      return;
+    }
+    
+    this.isPolling = true;
     try {
       const response: AxiosResponse<{ ok: boolean; result: TelegramUpdate[] }> = await axios.get(
         `${this.apiUrl}/getUpdates`,
@@ -158,7 +174,7 @@ export class TelegramBot {
 
       if (response.data.ok && response.data.result) {
         for (const update of response.data.result) {
-          if (update.update_id > this.lastUpdateId) {
+          if (update.update_id >= this.lastUpdateId) {
             this.lastUpdateId = update.update_id;
           }
 
@@ -215,7 +231,12 @@ export class TelegramBot {
       }
     } catch (error: any) {
       if (error.response?.status === 409) {
-        console.log('Telegram API conflict (409) - another instance may be polling. This is normal if multiple instances are running.');
+        const errorDescription = error.response?.data?.description || error.message;
+        console.error(`Telegram API conflict (409): ${errorDescription}`);
+        console.error('This usually means:');
+        console.error('  1. A webhook is set for this bot (use deleteWebhook API to remove it)');
+        console.error('  2. Another instance is polling getUpdates');
+        console.error('  3. The bot token is being used elsewhere');
         return;
       }
       if (error.response?.status === 429) {
@@ -232,14 +253,25 @@ export class TelegramBot {
           console.error('Response data:', error.response.data);
         }
       }
+    } finally {
+      this.isPolling = false;
     }
   }
 
-  startCommandPolling(intervalMs: number = 5000): void {
-    setInterval(() => {
-      this.handleUpdates().catch(error => {
-        console.error('Error in command polling:', error.message);
-      });
+  async startCommandPolling(intervalMs: number = 5000): Promise<void> {
+    if (this.pollingIntervalId) {
+      clearInterval(this.pollingIntervalId);
+    }
+    
+    await this.deleteWebhook();
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    this.pollingIntervalId = setInterval(() => {
+      if (!this.isPolling) {
+        this.handleUpdates().catch(error => {
+          console.error('Error in command polling:', error.message);
+        });
+      }
     }, intervalMs);
     console.log('Telegram command polling started');
   }
