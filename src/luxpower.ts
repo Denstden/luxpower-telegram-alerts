@@ -8,6 +8,20 @@ interface RuntimeData {
   vact: number;
   fac: number;
   status: number;
+  soc?: number;
+  vBat?: number;
+  batPower?: number;
+  vpv1?: number;
+  ppv1?: number;
+  vpv2?: number;
+  ppv2?: number;
+  vpv3?: number;
+  ppv3?: number;
+  pinv?: number;
+  peps?: number;
+  consumptionPower?: number;
+  statusText?: string;
+  deviceTime?: string;
   [key: string]: any;
 }
 
@@ -109,7 +123,6 @@ export class LuxpowerClient {
           }
         } catch (error: any) {
           if (error.response?.status === 302 || error.response?.status === 301) {
-            const location = error.response.headers.location;
             const cookies = error.response.headers['set-cookie'] || [];
             for (const cookie of cookies) {
               const match = cookie.match(/JSESSIONID=([^;]+)/);
@@ -173,14 +186,27 @@ export class LuxpowerClient {
     try {
       const data = await this.getInverterRuntime(serialNum);
 
-      const gridVoltage = data.vact ? data.vact / 100 : 0;
+      const vacr = data.vacr || 0;
+      const vact = data.vact || 0;
+      
+      const gridVoltage = vact > 0 ? (vact / 73).toFixed(1) : (vacr > 0 ? (vacr / 73).toFixed(1) : '0.0');
+      const gridVoltageNum = parseFloat(gridVoltage);
       const gridFrequency = data.fac ? data.fac / 100 : 0;
       const powerToGrid = data.pToGrid || 0;
       const powerToUser = data.pToUser || 0;
 
-      const hasElectricity = gridVoltage > 180 && gridFrequency > 45 && gridFrequency < 55;
+      const hasElectricity = gridVoltageNum > 180 && gridFrequency > 45 && gridFrequency < 55;
 
-      const gridPower = powerToGrid !== 0 ? powerToGrid : (powerToUser !== 0 ? -powerToUser : 0);
+      let gridPower = 0;
+      if (powerToGrid > 0) {
+        gridPower = powerToGrid;
+      } else if (powerToUser > 0) {
+        gridPower = -powerToUser;
+      } else if (powerToGrid < 0) {
+        gridPower = powerToGrid;
+      } else if (powerToUser < 0) {
+        gridPower = -powerToUser;
+      }
 
       return {
         hasElectricity,

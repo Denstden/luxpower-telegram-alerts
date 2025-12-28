@@ -1,0 +1,38 @@
+# Cursor Rules for Luxpower Telegram Alerts
+
+This project is a simple TypeScript service for monitoring electricity status via Luxpower API and sending Telegram notifications.
+
+## Project Context
+
+- **Purpose**: Monitor electricity status and notify users via Telegram when power appears/disappears
+- **Stack**: TypeScript, Node.js, Axios, Telegram Bot API
+- **Architecture**: Simple service with no UI, minimal dependencies
+
+## Code Style
+
+- Use TypeScript with strict mode disabled (for simplicity)
+- Prefer simple, readable code over complex abstractions
+- No comments in code (per project rules)
+- Keep dependencies minimal
+
+## Key Files
+
+- `src/monitor.ts` - Main service entry point
+- `src/luxpower.ts` - Luxpower API client (simplified, no complex auth)
+- `src/telegram.ts` - Telegram bot with subscriber management
+- `src/subscribers.ts` - Subscriber persistence
+
+## Important Notes
+
+- Authentication is handled automatically by axios with cookies
+- No manual session management needed
+- Subscribers stored in `subscribers.json` (gitignored)
+- Environment variables in `.env` (gitignored)
+
+## When Making Changes
+
+- Keep it simple - avoid over-engineering
+- Test with `npm run dev` before committing
+- Ensure `.gitignore` excludes sensitive files
+- Update README if adding new features
+

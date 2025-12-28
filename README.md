@@ -2,6 +2,8 @@
 
 A simple TypeScript service that monitors electricity status via the Luxpower API and sends Telegram notifications when electricity appears or disappears. Supports multiple subscribers with bot commands for real-time inverter information.
 
+> **Note**: This project was generated using [Cursor AI](https://cursor.sh/). See [NOTICE.md](./NOTICE.md) for more information.
+
 ## Features
 
 - ⚡ Automatic electricity status monitoring
@@ -54,11 +56,6 @@ npm run build
 npm start
 ```
 
-**Test connection:**
-```bash
-npm run test
-```
-
 The service will:
 - Poll the Luxpower API at the specified interval (default: 60 seconds)
 - Detect when electricity appears (grid voltage > 180V and frequency 45-55Hz)
@@ -68,21 +65,32 @@ The service will:
 
 ## Bot Commands
 
-Users can interact with the bot using these commands:
+Users can interact with the bot using commands or inline buttons:
 
+**Commands:**
 - `/start` - Subscribe to electricity notifications
 - `/stop` - Unsubscribe from notifications
 - `/status` - Check your subscription status
 - `/info` or `/inverter` - Get current inverter status (grid, battery, solar, power flow)
+- `/menu` - Show main menu with buttons
 - `/help` - Show all available commands
+
+**Inline Buttons:**
+- 📊 Inverter Info - Get real-time inverter status
+- 📈 Status - Check subscription status
+- ✅ Subscribe - Subscribe to notifications
+- ❌ Unsubscribe - Unsubscribe from notifications
+- ℹ️ Help - Show help menu
+- 🔄 Refresh - Refresh inverter information
+- 🏠 Main Menu - Return to main menu
 
 ### Inverter Information
 
 The `/info` command displays real-time data:
-- **Grid Status**: Voltage, frequency, power flow (to/from grid)
+- **Grid Status**: Electricity status, voltage, consumption, GRID power
 - **Battery Status**: State of charge (%), voltage, power (charging/discharging)
 - **Solar Input**: PV panel voltages and power for each input
-- **Power Flow**: Inverter output, EPS backup, consumption
+- **Power Flow**: Inverter output, EPS backup
 - **System Status**: Current system state and device time
 
 All users who send `/start` will automatically receive notifications when electricity appears or disappears. No hardcoded chat IDs needed!
@@ -106,11 +114,11 @@ luxpower-telegram-alerts/
 │   ├── luxpower.ts      # Luxpower API client
 │   ├── telegram.ts       # Telegram bot service
 │   ├── subscribers.ts    # Subscriber management
-│   ├── monitor.ts        # Main monitoring service
-│   └── test-plant.ts     # Test utility
+│   └── monitor.ts        # Main monitoring service
 ├── package.json
 ├── tsconfig.json
 ├── .gitignore
+├── NOTICE.md
 └── README.md
 ```
 
