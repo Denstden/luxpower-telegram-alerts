@@ -187,9 +187,13 @@ export class LuxpowerClient {
       const data = await this.getInverterRuntime(serialNum);
 
       const vacr = data.vacr || 0;
+      const vacs = data.vacs || 0;
       const vact = data.vact || 0;
+      const vepsr = data.vepsr || 0;
+      const vepss = data.vepss || 0;
+      const vepst = data.vepst || 0;
       
-      const gridVoltage = vact > 0 ? (vact / 73).toFixed(1) : (vacr > 0 ? (vacr / 73).toFixed(1) : '0.0');
+      const gridVoltage = vacr > 0 ? (vacr / 10).toFixed(1) : (vact > 0 ? (vact / 10).toFixed(1) : '0.0');
       const gridVoltageNum = parseFloat(gridVoltage);
       const gridFrequency = data.fac ? data.fac / 100 : 0;
       const powerToGrid = data.pToGrid || 0;
