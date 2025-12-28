@@ -35,6 +35,15 @@ interface TelegramUpdate {
   };
 }
 
+interface StatusTracker {
+  currentStatus: boolean | null;
+  currentDuration: number;
+  statusChangeTime: Date | null;
+  totalOnTime: number;
+  totalOffTime: number;
+  sessionDuration: number;
+}
+
 export class TelegramBot {
   private botToken: string;
   private apiUrl: string;
@@ -44,6 +53,7 @@ export class TelegramBot {
   private plantId: string | null = null;
   private isPolling: boolean = false;
   private pollingIntervalId: NodeJS.Timeout | null = null;
+  private statusTracker: (() => StatusTracker) | null = null;
 
   constructor(botToken: string) {
     this.botToken = botToken;
@@ -63,6 +73,29 @@ export class TelegramBot {
   setLuxpowerClient(luxpower: LuxpowerClient, plantId: string): void {
     this.luxpower = luxpower;
     this.plantId = plantId;
+  }
+
+  setStatusTracker(tracker: () => StatusTracker): void {
+    this.statusTracker = tracker;
+  }
+
+  private formatDuration(seconds: number): string {
+    if (seconds < 60) {
+      return `${seconds}s`;
+    } else if (seconds < 3600) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return secs > 0 ? `${minutes}m ${secs}s` : `${minutes}m`;
+    } else {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      const parts: string[] = [];
+      if (hours > 0) parts.push(`${hours}h`);
+      if (minutes > 0) parts.push(`${minutes}m`);
+      if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+      return parts.join(' ');
+    }
   }
 
   async sendMessage(chatId: string, text: string, replyMarkup?: any): Promise<TelegramResponse> {
@@ -87,17 +120,19 @@ export class TelegramBot {
     }
   }
 
-  private getMainMenu(): any {
+  private getMainMenu(chatId?: string): any {
+    const isSubscribed = chatId ? this.subscribers.has(chatId) : false;
+    const subscribeButton = isSubscribed 
+      ? [{ text: '❌ Unsubscribe', callback_data: 'unsubscribe' }]
+      : [{ text: '✅ Subscribe', callback_data: 'subscribe' }];
+    
     return {
       inline_keyboard: [
         [
           { text: '📊 Inverter Info', callback_data: 'info' },
           { text: '📈 Status', callback_data: 'status' }
         ],
-        [
-          { text: '✅ Subscribe', callback_data: 'subscribe' },
-          { text: '❌ Unsubscribe', callback_data: 'unsubscribe' }
-        ],
+        subscribeButton,
         [
           { text: 'ℹ️ Help', callback_data: 'help' }
         ]
@@ -121,16 +156,18 @@ export class TelegramBot {
     await Promise.all(promises);
   }
 
-  async notifyElectricityAppeared(gridPower: number): Promise<void> {
-    const message = `⚡ <b>Electricity Appeared!</b>\n\nGrid Power: ${gridPower.toFixed(2)} W\nTime: ${new Date().toLocaleString()}\n\nUse /info to see full inverter status.`;
+  async notifyElectricityAppeared(gridPower: number, previousOffDuration: number = 0): Promise<void> {
+    const offDurationText = previousOffDuration > 0 ? `\n⚫ Was off for: ${this.formatDuration(previousOffDuration)}` : '';
+    const message = `⚡ <b>Electricity Appeared!</b>\n\nGrid Power: ${gridPower.toFixed(2)} W${offDurationText}\nTime: ${new Date().toLocaleString()}\n\nUse /info to see full inverter status.`;
     const keyboard = {
       inline_keyboard: [[{ text: '📊 View Inverter Info', callback_data: 'info' }]]
     };
     await this.broadcastMessageWithKeyboard(message, keyboard);
   }
 
-  async notifyElectricityDisappeared(): Promise<void> {
-    const message = `🔌 <b>Electricity Disappeared!</b>\n\nTime: ${new Date().toLocaleString()}\n\nUse /info to see full inverter status.`;
+  async notifyElectricityDisappeared(previousOnDuration: number = 0): Promise<void> {
+    const onDurationText = previousOnDuration > 0 ? `\n⚫ Was on for: ${this.formatDuration(previousOnDuration)}` : '';
+    const message = `🔌 <b>Electricity Disappeared!</b>${onDurationText}\n\nTime: ${new Date().toLocaleString()}\n\nUse /info to see full inverter status.`;
     const keyboard = {
       inline_keyboard: [[{ text: '📊 View Inverter Info', callback_data: 'info' }]]
     };
@@ -199,7 +236,7 @@ export class TelegramBot {
               } else if (data === 'help') {
                 await this.sendHelp(chatId);
               } else if (data === 'menu') {
-                await this.sendMessage(chatId, '🏠 <b>Main Menu</b>\n\nSelect an option:', this.getMainMenu());
+                await this.sendMessage(chatId, '🏠 <b>Main Menu</b>\n\nSelect an option:', this.getMainMenu(chatId));
               }
             } catch (cmdError: any) {
               console.error(`Error processing callback from ${chatId}:`, cmdError.message);
@@ -221,7 +258,7 @@ export class TelegramBot {
               } else if (text === '/help') {
                 await this.sendHelp(chatId);
               } else if (text === '/menu') {
-                await this.sendMessage(chatId, '🏠 <b>Main Menu</b>\n\nSelect an option:', this.getMainMenu());
+                await this.sendMessage(chatId, '🏠 <b>Main Menu</b>\n\nSelect an option:', this.getMainMenu(chatId));
               }
             } catch (cmdError: any) {
               console.error(`Error processing command from ${chatId}:`, cmdError.message);
@@ -316,7 +353,15 @@ export class TelegramBot {
 
       let message = `⚡ <b>Inverter Status</b>\n\n`;
       message += `📅 <b>Time:</b> ${deviceTime}\n`;
-      message += `🔄 <b>System Status:</b> ${statusText}\n\n`;
+      message += `🔄 <b>System Status:</b> ${statusText}\n`;
+      
+      if (this.statusTracker) {
+        const stats = this.statusTracker();
+        if (stats.currentDuration > 0) {
+          message += `⏱️ <b>Current state:</b> ${this.formatDuration(stats.currentDuration)}\n`;
+        }
+      }
+      message += `\n`;
       
       message += `🔌 <b>Grid Status</b>\n`;
       message += `   Electricity: ${electricityStatus}\n`;
@@ -371,14 +416,14 @@ export class TelegramBot {
       await this.sendMessage(
         chatId,
         `✅ <b>Subscribed!</b>\n\nYou will now receive electricity status notifications.\n\nUse the buttons below to interact with the bot.`,
-        this.getMainMenu()
+        this.getMainMenu(chatId)
       );
       console.log(`User ${userName} (${chatId}) subscribed. Total subscribers: ${this.subscribers.count()}`);
     } else {
       await this.sendMessage(
         chatId,
         `You are already subscribed! Use the buttons below to interact with the bot.`,
-        this.getMainMenu()
+        this.getMainMenu(chatId)
       );
     }
   }
@@ -397,15 +442,39 @@ export class TelegramBot {
   }
 
   private async handleStatusCommand(chatId: string): Promise<void> {
-    const isSubscribed = this.subscribers.has(chatId);
-    const totalSubscribers = this.subscribers.count();
-    await this.sendMessage(
-      chatId,
-      `📊 <b>Subscription Status</b>\n\n` +
-      `Your subscription: ${isSubscribed ? '✅ Active' : '❌ Not subscribed'}\n` +
-      `Total subscribers: ${totalSubscribers}`,
-      this.getMainMenu()
-    );
+    let statusInfo = '';
+    
+    if (this.statusTracker) {
+      const stats = this.statusTracker();
+      const statusText = stats.currentStatus === true ? '🟢 ON' : stats.currentStatus === false ? '🔴 OFF' : '⚪ Unknown';
+      
+      statusInfo += `⚡ <b>Electricity Status</b>\n`;
+      
+      if (stats.statusChangeTime && stats.currentDuration >= 0) {
+        const durationFormatted = this.formatDuration(stats.currentDuration);
+        statusInfo += `Current: ${statusText} (${durationFormatted})\n`;
+        statusInfo += `Since: ${stats.statusChangeTime.toLocaleString()}\n`;
+      } else if (stats.statusChangeTime) {
+        const durationFormatted = this.formatDuration(Math.abs(stats.currentDuration));
+        statusInfo += `Current: ${statusText} (${durationFormatted})\n`;
+        statusInfo += `Since: ${stats.statusChangeTime.toLocaleString()}\n`;
+      } else {
+        statusInfo += `Current: ${statusText}\n`;
+      }
+      
+      if (stats.sessionDuration > 0) {
+        const sessionHours = Math.floor(stats.sessionDuration / 3600);
+        const sessionMinutes = Math.floor((stats.sessionDuration % 3600) / 60);
+        statusInfo += `\n📈 <b>Session Stats</b> (since service start)\n`;
+        statusInfo += `Total ON time: ${this.formatDuration(stats.totalOnTime)}\n`;
+        statusInfo += `Total OFF time: ${this.formatDuration(stats.totalOffTime)}\n`;
+        statusInfo += `Session duration: ${sessionHours > 0 ? `${sessionHours}h ` : ''}${sessionMinutes}m`;
+      }
+    } else {
+      statusInfo = '⚡ <b>Electricity Status</b>\n\nStatus tracking is not available.';
+    }
+    
+    await this.sendMessage(chatId, statusInfo, this.getMainMenu(chatId));
   }
 
   private async sendHelp(chatId: string): Promise<void> {
@@ -420,6 +489,6 @@ export class TelegramBot {
       `You can also use the buttons below for quick access.\n\n` +
       `The bot will automatically notify you when electricity appears or disappears.`;
     
-    await this.sendMessage(chatId, message, this.getMainMenu());
+    await this.sendMessage(chatId, message, this.getMainMenu(chatId));
   }
 }
