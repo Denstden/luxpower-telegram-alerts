@@ -3,7 +3,7 @@
 set -e
 
 IMAGE_NAME=${1:-luxpower-telegram-alerts}
-VERSION=${2:-latest}
+VERSION=${2:-$(jq -r '.version' package.json 2>/dev/null || echo 'latest')}
 DOCKER_USER=${DOCKER_USER:-denst}
 
 if [ -z "$DOCKER_USER" ]; then
@@ -24,13 +24,10 @@ echo "Pushing to Docker Hub..."
 echo "Note: Make sure you're logged in to Docker Hub (docker login)"
 echo ""
 docker push "$FULL_IMAGE_NAME"
-
-if [ "$VERSION" = "latest" ]; then
-  echo "Pushed: $FULL_IMAGE_NAME"
-else
-  echo "Pushed: $FULL_IMAGE_NAME"
-fi
+docker push "$DOCKER_USER/$IMAGE_NAME:latest"
 
 echo ""
-echo "✅ Done! Image is now available on Docker Hub: $FULL_IMAGE_NAME"
+echo "✅ Done! Images pushed:"
+echo "   - $FULL_IMAGE_NAME"
+echo "   - $DOCKER_USER/$IMAGE_NAME:latest"
 

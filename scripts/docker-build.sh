@@ -3,7 +3,7 @@
 set -e
 
 IMAGE_NAME=${1:-luxpower-telegram-alerts}
-VERSION=${2:-latest}
+VERSION=${2:-$(jq -r '.version' package.json 2>/dev/null || echo 'latest')}
 DOCKER_USER=${DOCKER_USER:-denst}
 
 if [ -z "$DOCKER_USER" ]; then
@@ -18,18 +18,13 @@ echo "Building Docker image: $FULL_IMAGE_NAME"
 
 docker build -t "$FULL_IMAGE_NAME" .
 
-if [ "$VERSION" = "latest" ]; then
-  docker tag "$FULL_IMAGE_NAME" "$DOCKER_USER/$IMAGE_NAME:latest"
-fi
+docker tag "$FULL_IMAGE_NAME" "$DOCKER_USER/$IMAGE_NAME:latest"
 
 echo ""
 echo "Image built successfully!"
+echo "Tags: $FULL_IMAGE_NAME, $DOCKER_USER/$IMAGE_NAME:latest"
 echo ""
 echo "To push to Docker Hub, run:"
 echo "  docker push $FULL_IMAGE_NAME"
-echo ""
-if [ "$VERSION" = "latest" ]; then
-  echo "Or push all tags:"
-  echo "  docker push $DOCKER_USER/$IMAGE_NAME:latest"
-fi
+echo "  docker push $DOCKER_USER/$IMAGE_NAME:latest"
 
