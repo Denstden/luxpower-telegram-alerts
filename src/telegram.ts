@@ -1,6 +1,7 @@
 import axios, { AxiosResponse } from 'axios';
 import { SubscribersManager } from './subscribers';
 import { LuxpowerClient } from './luxpower';
+import * as packageJson from '../package.json';
 
 interface TelegramResponse {
   ok: boolean;
@@ -236,7 +237,8 @@ export class TelegramBot {
               } else if (data === 'help') {
                 await this.sendHelp(chatId);
               } else if (data === 'menu') {
-                await this.sendMessage(chatId, '🏠 <b>Main Menu</b>\n\nSelect an option:', this.getMainMenu(chatId));
+                const version = packageJson.version || 'unknown';
+                await this.sendMessage(chatId, `🏠 <b>Main Menu</b>\n\nSelect an option:\n\n📦 <b>Version:</b> ${version}`, this.getMainMenu(chatId));
               }
             } catch (cmdError: any) {
               console.error(`Error processing callback from ${chatId}:`, cmdError.message);
@@ -258,7 +260,8 @@ export class TelegramBot {
               } else if (text === '/help') {
                 await this.sendHelp(chatId);
               } else if (text === '/menu') {
-                await this.sendMessage(chatId, '🏠 <b>Main Menu</b>\n\nSelect an option:', this.getMainMenu(chatId));
+                const version = packageJson.version || 'unknown';
+                await this.sendMessage(chatId, `🏠 <b>Main Menu</b>\n\nSelect an option:\n\n📦 <b>Version:</b> ${version}`, this.getMainMenu(chatId));
               }
             } catch (cmdError: any) {
               console.error(`Error processing command from ${chatId}:`, cmdError.message);
@@ -489,6 +492,7 @@ export class TelegramBot {
   }
 
   private async sendHelp(chatId: string): Promise<void> {
+    const version = packageJson.version || 'unknown';
     const message = `📖 <b>Available Commands</b>\n\n` +
       `<b>Commands:</b>\n` +
       `/start - Subscribe to notifications\n` +
@@ -498,7 +502,8 @@ export class TelegramBot {
       `/menu - Show main menu\n` +
       `/help - Show this help\n\n` +
       `You can also use the buttons below for quick access.\n\n` +
-      `The bot will automatically notify you when electricity appears or disappears.`;
+      `The bot will automatically notify you when electricity appears or disappears.\n\n` +
+      `📦 <b>Version:</b> ${version}`;
     
     await this.sendMessage(chatId, message, this.getMainMenu(chatId));
   }
