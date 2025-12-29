@@ -75,7 +75,7 @@ All users who send `/start` will automatically receive notifications when electr
 ## Configuration
 
 - `POLL_INTERVAL`: Polling interval in milliseconds (default: 60000 = 60 seconds)
-- `COMMAND_POLL_INTERVAL`: How often to check for bot commands (default: 5000 = 5 seconds)
+- `COMMAND_POLL_INTERVAL`: How often to check for bot commands (default: 1000 = 1 second)
 - `LUXPOWER_API_ENDPOINT`: API endpoint URL (default: https://eu.luxpowertek.com)
 
 Subscribers are automatically saved to `subscribers.json` file (excluded from git).
