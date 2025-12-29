@@ -202,10 +202,10 @@ export class TelegramBot {
         {
           params: {
             offset: this.lastUpdateId + 1,
-            timeout: 10,
+            timeout: 5,
             allowed_updates: ['message', 'callback_query']
           },
-          timeout: 12000
+          timeout: 6000
         }
       );
 
@@ -349,7 +349,18 @@ export class TelegramBot {
       const deviceTime = data.deviceTime || 'N/A';
 
       const electricityStatus = status.hasElectricity ? '🟢 ON' : '🔴 OFF';
-      const batteryStatus = batteryPower > 0 ? '🔋 Charging' : batteryPower < 0 ? '⚡ Discharging' : '⚪ Idle';
+      let batteryStatus: string;
+      if (batteryPower > 0) {
+        batteryStatus = '🔋 Charging';
+      } else if (batteryPower < 0) {
+        if (batterySOC >= 100 && Math.abs(batteryPower) < 20) {
+          batteryStatus = '⚪ Standby';
+        } else {
+          batteryStatus = '⚡ Discharging';
+        }
+      } else {
+        batteryStatus = '⚪ Standby';
+      }
 
       let message = `⚡ <b>Inverter Status</b>\n\n`;
       message += `📅 <b>Time:</b> ${deviceTime}\n`;
