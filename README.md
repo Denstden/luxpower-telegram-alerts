@@ -12,15 +12,11 @@ A simple TypeScript service that monitors electricity status via the Luxpower AP
    ```
 
 2. **Create a `.env` file** in the root directory:
+   ```bash
+   cp .env.example .env
    ```
-   LUXPOWER_USERNAME=your_username
-   LUXPOWER_PASSWORD=your_password
-   LUXPOWER_API_ENDPOINT=https://eu.luxpowertek.com
-   LUXPOWER_PLANT_ID=your_plant_id
-   TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-   POLL_INTERVAL=60000
-   COMMAND_POLL_INTERVAL=5000
-   ```
+   
+   Then edit `.env` and fill in your credentials. See `.env.example` for all available configuration options.
 
 3. **Get your Plant ID:**
    - Log into https://eu.luxpowertek.com/WManage/web/monitor/inverter
@@ -47,12 +43,44 @@ npm start
 
 ## Docker
 
+### Using Docker Compose (Recommended)
+
 Build and run with Docker Compose:
 ```bash
 docker compose up -d
 ```
 
 Make sure to set `DOCKER_USER` in `docker-compose.yml` or as an environment variable.
+
+### Using Docker Run
+
+You can also run the container directly with `docker run`:
+
+```bash
+docker run -d \
+  --name luxpower-alerts \
+  --restart unless-stopped \
+  -v $(pwd)/.env:/app/.env:ro \
+  -v $(pwd)/subscribers.json:/app/subscribers.json \
+  -v $(pwd)/status.json:/app/status.json \
+  -v /etc/localtime:/etc/localtime:ro \
+  -v /etc/timezone:/etc/timezone:ro \
+  -e NODE_ENV=production \
+  yourusername/luxpower-telegram-alerts:latest
+```
+
+**Required Volumes:**
+- `./.env:/app/.env:ro` - Configuration file with credentials (read-only for security)
+- `./subscribers.json:/app/subscribers.json` - Subscriber data persistence (read-write)
+- `./status.json:/app/status.json` - Status and duration tracking persistence (read-write)
+- `/etc/localtime:/etc/localtime:ro` - System timezone for correct timestamps (read-only)
+- `/etc/timezone:/etc/timezone:ro` - System timezone configuration (read-only)
+
+**Note:** Make sure the `subscribers.json` and `status.json` files exist before starting the container. They will be created automatically if missing, but it's better to create them with proper permissions:
+```bash
+touch subscribers.json status.json
+chmod 666 subscribers.json status.json
+```
 
 ## Bot Commands
 
@@ -74,7 +102,7 @@ All users who send `/start` will automatically receive notifications when electr
 
 ## Configuration
 
-- `POLL_INTERVAL`: Polling interval in milliseconds (default: 60000 = 60 seconds)
+- `POLL_INTERVAL`: Polling interval in milliseconds (default: 30000 = 30 seconds)
 - `COMMAND_POLL_INTERVAL`: How often to check for bot commands (default: 1000 = 1 second)
 - `LUXPOWER_API_ENDPOINT`: API endpoint URL (default: https://eu.luxpowertek.com)
 

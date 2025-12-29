@@ -10,7 +10,7 @@ const LUXPOWER_PASSWORD = process.env.LUXPOWER_PASSWORD;
 const LUXPOWER_API_ENDPOINT = process.env.LUXPOWER_API_ENDPOINT || 'https://eu.luxpowertek.com';
 const LUXPOWER_PLANT_ID = process.env.LUXPOWER_PLANT_ID || process.env.LUXPOWER_SERIAL_NUM;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || '60000', 10);
+const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || '30000', 10);
 const COMMAND_POLL_INTERVAL = parseInt(process.env.COMMAND_POLL_INTERVAL || '1000', 10);
 
 if (!LUXPOWER_USERNAME || !LUXPOWER_PASSWORD) {
