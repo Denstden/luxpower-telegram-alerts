@@ -66,7 +66,7 @@ docker run -d \
   -v /etc/localtime:/etc/localtime:ro \
   -v /etc/timezone:/etc/timezone:ro \
   -e NODE_ENV=production \
-  yourusername/luxpower-telegram-alerts:latest
+  denst/luxpower-telegram-alerts:latest
 ```
 
 **Required Volumes:**
