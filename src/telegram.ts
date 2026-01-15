@@ -1,7 +1,10 @@
 import axios, { AxiosResponse } from 'axios';
 import { SubscribersManager } from './subscribers';
 import { LuxpowerClient } from './luxpower';
+import { ChartGenerator } from './chart-generator';
 import * as packageJson from '../package.json';
+import FormData from 'form-data';
+import { logger } from './logger';
 
 interface TelegramResponse {
   ok: boolean;
@@ -55,19 +58,21 @@ export class TelegramBot {
   private isPolling: boolean = false;
   private pollingIntervalId: NodeJS.Timeout | null = null;
   private statusTracker: (() => StatusTracker) | null = null;
+  private chartGenerator: ChartGenerator;
 
   constructor(botToken: string) {
     this.botToken = botToken;
     this.apiUrl = `https://api.telegram.org/bot${botToken}`;
     this.subscribers = new SubscribersManager();
+    this.chartGenerator = new ChartGenerator();
   }
 
   private async deleteWebhook(): Promise<void> {
     try {
       await axios.post(`${this.apiUrl}/deleteWebhook`, { drop_pending_updates: true });
-      console.log('Webhook deleted (if any existed)');
+      logger.debug('Webhook deleted (if any existed)');
     } catch (error: any) {
-      console.log('No webhook to delete or error deleting webhook:', error.message);
+      logger.debug(`No webhook to delete or error deleting webhook: ${error.message}`);
     }
   }
 
@@ -113,9 +118,9 @@ export class TelegramBot {
 
       return response.data;
     } catch (error: any) {
-      console.error(`Telegram send message error to ${chatId}:`, error.message);
+      logger.error(`Telegram send message error to ${chatId}: ${error.message}`);
       if (error.response) {
-        console.error('Response data:', error.response.data);
+        logger.debug(`Response data: ${JSON.stringify(error.response.data)}`);
       }
       throw error;
     }
@@ -133,6 +138,11 @@ export class TelegramBot {
           { text: '📊 Inverter Info', callback_data: 'info' },
           { text: '📈 Status', callback_data: 'status' }
         ],
+        [
+          { text: '📉 1 Day', callback_data: 'chart_24' },
+          { text: '📉 1 Week', callback_data: 'chart_168' },
+          { text: '📉 1 Month', callback_data: 'chart_720' }
+        ],
         subscribeButton,
         [
           { text: 'ℹ️ Help', callback_data: 'help' }
@@ -144,14 +154,14 @@ export class TelegramBot {
   async broadcastMessage(text: string): Promise<void> {
     const chatIds = this.subscribers.getAll();
     if (chatIds.length === 0) {
-      console.log('No subscribers to notify');
+      logger.debug('No subscribers to notify');
       return;
     }
 
-    console.log(`Broadcasting to ${chatIds.length} subscriber(s)...`);
+    logger.info(`Broadcasting to ${chatIds.length} subscriber(s)...`);
     const promises = chatIds.map(chatId => 
       this.sendMessage(chatId, text).catch(error => {
-        console.error(`Failed to send to ${chatId}:`, error.message);
+        logger.warn(`Failed to send to ${chatId}: ${error.message}`);
       })
     );
     await Promise.all(promises);
@@ -178,14 +188,14 @@ export class TelegramBot {
   private async broadcastMessageWithKeyboard(text: string, replyMarkup: any): Promise<void> {
     const chatIds = this.subscribers.getAll();
     if (chatIds.length === 0) {
-      console.log('No subscribers to notify');
+      logger.debug('No subscribers to notify');
       return;
     }
 
-    console.log(`Broadcasting to ${chatIds.length} subscriber(s)...`);
+    logger.info(`Broadcasting to ${chatIds.length} subscriber(s)...`);
     const promises = chatIds.map(chatId => 
       this.sendMessage(chatId, text, replyMarkup).catch(error => {
-        console.error(`Failed to send to ${chatId}:`, error.message);
+        logger.warn(`Failed to send to ${chatId}: ${error.message}`);
       })
     );
     await Promise.all(promises);
@@ -239,9 +249,12 @@ export class TelegramBot {
               } else if (data === 'menu') {
                 const version = packageJson.version || 'unknown';
                 await this.sendMessage(chatId, `🏠 <b>Main Menu</b>\n\nSelect an option:\n\n📦 <b>Version:</b> ${version}`, this.getMainMenu(chatId));
+              } else if (data?.startsWith('chart_')) {
+                const hours = parseInt(data.replace('chart_', ''), 10);
+                await this.sendChart(chatId, hours);
               }
             } catch (cmdError: any) {
-              console.error(`Error processing callback from ${chatId}:`, cmdError.message);
+              logger.warn(`Error processing callback from ${chatId}: ${cmdError.message}`);
             }
           } else if (update.message?.text && update.message?.chat) {
             const chatId = update.message.chat.id.toString();
@@ -262,9 +275,25 @@ export class TelegramBot {
               } else if (text === '/menu') {
                 const version = packageJson.version || 'unknown';
                 await this.sendMessage(chatId, `🏠 <b>Main Menu</b>\n\nSelect an option:\n\n📦 <b>Version:</b> ${version}`, this.getMainMenu(chatId));
+              } else if (text === '/chart' || text === '/history') {
+                await this.sendChart(chatId, 24);
+              } else if (text === '/chart_day' || text === '/chart_1d') {
+                await this.sendChart(chatId, 24);
+              } else if (text === '/chart_week' || text === '/chart_1w') {
+                await this.sendChart(chatId, 168);
+              } else if (text === '/chart_month' || text === '/chart_1m') {
+                await this.sendChart(chatId, 720);
+              } else if (text.startsWith('/chart_')) {
+                const hoursMatch = text.match(/\/chart_(\d+)/);
+                if (hoursMatch) {
+                  const hours = parseInt(hoursMatch[1], 10);
+                  await this.sendChart(chatId, hours);
+                } else {
+                  await this.sendChart(chatId, 24);
+                }
               }
             } catch (cmdError: any) {
-              console.error(`Error processing command from ${chatId}:`, cmdError.message);
+              logger.warn(`Error processing command from ${chatId}: ${cmdError.message}`);
             }
           }
         }
@@ -272,25 +301,25 @@ export class TelegramBot {
     } catch (error: any) {
       if (error.response?.status === 409) {
         const errorDescription = error.response?.data?.description || error.message;
-        console.error(`Telegram API conflict (409): ${errorDescription}`);
-        console.error('This usually means:');
-        console.error('  1. A webhook is set for this bot (use deleteWebhook API to remove it)');
-        console.error('  2. Another instance is polling getUpdates');
-        console.error('  3. The bot token is being used elsewhere');
+        logger.warn(`Telegram API conflict (409): ${errorDescription}`);
+        logger.warn('This usually means:');
+        logger.warn('  1. A webhook is set for this bot (use deleteWebhook API to remove it)');
+        logger.warn('  2. Another instance is polling getUpdates');
+        logger.warn('  3. The bot token is being used elsewhere');
         return;
       }
       if (error.response?.status === 429) {
-        console.log('Telegram API rate limit (429) - waiting before next poll...');
+        logger.debug('Telegram API rate limit (429) - waiting before next poll...');
         return;
       }
       if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
         return;
       }
       if (error.code !== 'ECONNABORTED') {
-        console.error('Error handling Telegram updates:', error.message);
+        logger.error(`Error handling Telegram updates: ${error.message}`);
         if (error.response) {
-          console.error('Response status:', error.response.status);
-          console.error('Response data:', error.response.data);
+          logger.debug(`Response status: ${error.response.status}`);
+          logger.debug(`Response data: ${JSON.stringify(error.response.data)}`);
         }
       }
     } finally {
@@ -309,11 +338,11 @@ export class TelegramBot {
     this.pollingIntervalId = setInterval(() => {
       if (!this.isPolling) {
         this.handleUpdates().catch(error => {
-          console.error('Error in command polling:', error.message);
+          logger.error(`Error in command polling: ${error.message}`);
         });
       }
     }, intervalMs);
-    console.log('Telegram command polling started');
+    logger.info('Telegram command polling started');
   }
 
   getSubscriberCount(): number {
@@ -420,7 +449,7 @@ export class TelegramBot {
       await this.sendMessage(chatId, message, keyboard);
     } catch (error: any) {
       await this.sendMessage(chatId, `❌ Error fetching inverter information: ${error.message}`);
-      console.error('Error sending inverter info:', error.message);
+      logger.error(`Error sending inverter info: ${error.message}`);
     }
   }
 
@@ -432,7 +461,7 @@ export class TelegramBot {
         `✅ <b>Subscribed!</b>\n\nYou will now receive electricity status notifications.\n\nUse the buttons below to interact with the bot.`,
         this.getMainMenu(chatId)
       );
-      console.log(`User ${userName} (${chatId}) subscribed. Total subscribers: ${this.subscribers.count()}`);
+      logger.info(`User ${userName} (${chatId}) subscribed. Total subscribers: ${this.subscribers.count()}`);
     } else {
       await this.sendMessage(
         chatId,
@@ -449,7 +478,7 @@ export class TelegramBot {
         chatId,
         `❌ <b>Unsubscribed</b>\n\nYou will no longer receive notifications.\n\nUse /start to subscribe again.`
       );
-      console.log(`User ${userName} (${chatId}) unsubscribed. Total subscribers: ${this.subscribers.count()}`);
+      logger.info(`User ${userName} (${chatId}) unsubscribed. Total subscribers: ${this.subscribers.count()}`);
     } else {
       await this.sendMessage(chatId, `You are not subscribed. Use /start to subscribe.`);
     }
@@ -491,17 +520,90 @@ export class TelegramBot {
     await this.sendMessage(chatId, statusInfo, this.getMainMenu(chatId));
   }
 
+  private async sendChart(chatId: string, hours: number = 24): Promise<void> {
+    if (!this.luxpower || !this.plantId) {
+      await this.sendMessage(chatId, '❌ Chart generation is not available. The service may not be fully configured.');
+      return;
+    }
+
+    try {
+      let periodLabel = '';
+      if (hours === 24) {
+        periodLabel = '1 Day';
+      } else if (hours === 168) {
+        periodLabel = '1 Week';
+      } else if (hours === 720) {
+        periodLabel = '1 Month';
+      } else {
+        periodLabel = `${hours} hours`;
+      }
+
+      await this.sendMessage(chatId, `📊 Generating chart for ${periodLabel}...`);
+
+      const endDate = new Date();
+      const startDate = new Date(endDate.getTime() - (hours * 60 * 60 * 1000));
+      
+      const historyData = await this.luxpower.getHistoryData(this.plantId, startDate, endDate);
+
+      if (historyData.length === 0) {
+        await this.sendMessage(chatId, `❌ No history data available for ${periodLabel}.`);
+        return;
+      }
+
+      const chartBuffer = await this.chartGenerator.generateTimelineChart(historyData, hours);
+      
+      const formData = new FormData();
+      formData.append('chat_id', chatId);
+      formData.append('photo', chartBuffer, {
+        filename: 'chart.png',
+        contentType: 'image/png'
+      });
+      formData.append('caption', `📊 <b>Electricity Status History</b>\n\n${periodLabel}\n\n🟢 Green = ON | 🔴 Red = OFF`);
+      formData.append('parse_mode', 'HTML');
+
+      await axios.post(`${this.apiUrl}/sendPhoto`, formData, {
+        headers: formData.getHeaders()
+      });
+
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: '🔄 Refresh', callback_data: `chart_${hours}` },
+            { text: '📉 1 Day', callback_data: 'chart_24' },
+            { text: '📉 1 Week', callback_data: 'chart_168' },
+            { text: '📉 1 Month', callback_data: 'chart_720' }
+          ],
+          [
+            { text: '🏠 Main Menu', callback_data: 'menu' }
+          ]
+        ]
+      };
+
+      await this.sendMessage(chatId, 'Select a time range:', keyboard);
+    } catch (error: any) {
+      logger.error(`Error sending chart: ${error.message}`);
+      await this.sendMessage(chatId, `❌ Error generating chart: ${error.message}`);
+    }
+  }
+
   private async sendHelp(chatId: string): Promise<void> {
     const version = packageJson.version || 'unknown';
+    const isSubscribed = this.subscribers.has(chatId);
     const message = `📖 <b>Available Commands</b>\n\n` +
-      `<b>Commands:</b>\n` +
+      `<b>Main Commands:</b>\n` +
       `/start - Subscribe to notifications\n` +
-      `/stop - Unsubscribe\n` +
-      `/status - Check subscription\n` +
-      `/info - Get inverter status\n` +
-      `/menu - Show main menu\n` +
-      `/help - Show this help\n\n` +
-      `You can also use the buttons below for quick access.\n\n` +
+      `/stop - Unsubscribe from notifications\n` +
+      `/menu - Show main menu with buttons\n\n` +
+      `<b>Status & Info:</b>\n` +
+      `/status - Check electricity status and statistics\n` +
+      `/info or /inverter - Get detailed inverter information\n\n` +
+      `<b>Charts:</b>\n` +
+      `/chart or /chart_day - View 1 day chart\n` +
+      `/chart_week - View 1 week chart\n` +
+      `/chart_month - View 1 month chart\n\n` +
+      `<b>Other:</b>\n` +
+      `/help - Show this help message\n\n` +
+      `You can also use the buttons in the menu for quick access.\n\n` +
       `The bot will automatically notify you when electricity appears or disappears.\n\n` +
       `📦 <b>Version:</b> ${version}`;
     

@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { logger } from './logger';
 
 const STATUS_FILE = path.join(process.cwd(), 'status.json');
 
@@ -33,7 +34,7 @@ export class StatusPersistence {
         return loaded;
       }
     } catch (error: any) {
-      console.error('[StatusPersistence] Error loading status data:', error.message);
+      logger.error(`Error loading status data: ${error.message}`);
     }
 
     return {
@@ -49,7 +50,7 @@ export class StatusPersistence {
     try {
       fs.writeFileSync(STATUS_FILE, JSON.stringify(this.data, null, 2));
     } catch (error: any) {
-      console.error('Error saving status data:', error.message);
+      logger.error(`Error saving status data: ${error.message}`);
     }
   }
 
