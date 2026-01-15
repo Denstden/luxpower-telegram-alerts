@@ -73,6 +73,7 @@ docker run -d \
 - `./.env:/app/.env:ro` - Configuration file with credentials (read-only for security)
 - `./subscribers.json:/app/subscribers.json` - Subscriber data persistence (read-write)
 - `./status.json:/app/status.json` - Status and duration tracking persistence (read-write)
+- `./history-cache:/app/history-cache` - History data cache directory (read-write)
 - `/etc/localtime:/etc/localtime:ro` - System timezone for correct timestamps (read-only)
 - `/etc/timezone:/etc/timezone:ro` - System timezone configuration (read-only)
 

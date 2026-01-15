@@ -171,7 +171,19 @@ export class TelegramBot {
     const offDurationText = previousOffDuration > 0 ? `\n⚫ Was off for: ${this.formatDuration(previousOffDuration)}` : '';
     const message = `⚡ <b>Electricity Appeared!</b>\n\nGrid Power: ${gridPower.toFixed(2)} W${offDurationText}\nTime: ${new Date().toLocaleString()}\n\nUse /info to see full inverter status.`;
     const keyboard = {
-      inline_keyboard: [[{ text: '📊 View Inverter Info', callback_data: 'info' }]]
+      inline_keyboard: [
+        [
+          { text: '📊 Inverter Info', callback_data: 'info' },
+          { text: '📈 Status', callback_data: 'status' }
+        ],
+        [
+          { text: '📉 1 Day Chart', callback_data: 'chart_24' },
+          { text: '📉 1 Week Chart', callback_data: 'chart_168' }
+        ],
+        [
+          { text: '🏠 Main Menu', callback_data: 'menu' }
+        ]
+      ]
     };
     await this.broadcastMessageWithKeyboard(message, keyboard);
   }
@@ -180,7 +192,19 @@ export class TelegramBot {
     const onDurationText = previousOnDuration > 0 ? `\n⚫ Was on for: ${this.formatDuration(previousOnDuration)}` : '';
     const message = `🔌 <b>Electricity Disappeared!</b>${onDurationText}\n\nTime: ${new Date().toLocaleString()}\n\nUse /info to see full inverter status.`;
     const keyboard = {
-      inline_keyboard: [[{ text: '📊 View Inverter Info', callback_data: 'info' }]]
+      inline_keyboard: [
+        [
+          { text: '📊 Inverter Info', callback_data: 'info' },
+          { text: '📈 Status', callback_data: 'status' }
+        ],
+        [
+          { text: '📉 1 Day Chart', callback_data: 'chart_24' },
+          { text: '📉 1 Week Chart', callback_data: 'chart_168' }
+        ],
+        [
+          { text: '🏠 Main Menu', callback_data: 'menu' }
+        ]
+      ]
     };
     await this.broadcastMessageWithKeyboard(message, keyboard);
   }
