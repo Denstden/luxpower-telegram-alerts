@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import { Resvg } from '@resvg/resvg-js';
 
 interface HistoryPoint {
     timestamp: string;
@@ -37,7 +37,7 @@ export class ChartGenerator {
         let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`;
         svg += `<rect width="${width}" height="${height}" fill="${bgColor}"/>`;
         
-        svg += `<text x="${width / 2}" y="30" text-anchor="middle" fill="${textColor}" font-family="Arial, sans-serif" font-size="18" font-weight="bold">Electricity Status - ${periodLabels[period]}</text>`;
+        svg += `<text x="${width / 2}" y="30" text-anchor="middle" fill="${textColor}" font-family="sans-serif" font-size="18" font-weight="bold">Electricity Status - ${periodLabels[period]}</text>`;
 
         for (let i = 0; i <= 10; i++) {
             const y = padding + (chartHeight / 10) * i;
@@ -50,8 +50,8 @@ export class ChartGenerator {
         const onY = padding + chartHeight * 0.1;
         const offY = padding + chartHeight * 0.9;
 
-        svg += `<text x="${padding - 10}" y="${onY + 5}" text-anchor="end" fill="${onColor}" font-family="Arial, sans-serif" font-size="12">ON</text>`;
-        svg += `<text x="${padding - 10}" y="${offY + 5}" text-anchor="end" fill="${offColor}" font-family="Arial, sans-serif" font-size="12">OFF</text>`;
+        svg += `<text x="${padding - 10}" y="${onY + 5}" text-anchor="end" fill="${onColor}" font-family="sans-serif" font-size="12">ON</text>`;
+        svg += `<text x="${padding - 10}" y="${offY + 5}" text-anchor="end" fill="${offColor}" font-family="sans-serif" font-size="12">OFF</text>`;
 
         let path = '';
         let lastY = 0;
@@ -108,7 +108,7 @@ export class ChartGenerator {
         }
         
         for (const { x, label } of labels) {
-            svg += `<text x="${x}" y="${height - padding + 20}" text-anchor="middle" fill="${textColor}" font-family="Arial, sans-serif" font-size="10" transform="rotate(-45 ${x} ${height - padding + 20})">${label}</text>`;
+            svg += `<text x="${x}" y="${height - padding + 20}" text-anchor="middle" fill="${textColor}" font-family="sans-serif" font-size="10" transform="rotate(-45 ${x} ${height - padding + 20})">${label}</text>`;
         }
 
         const onCount = historyPoints.filter(p => p.hasElectricity).length;
@@ -116,8 +116,8 @@ export class ChartGenerator {
         const onPercent = ((onCount / historyPoints.length) * 100).toFixed(1);
         const offPercent = ((offCount / historyPoints.length) * 100).toFixed(1);
 
-        svg += `<text x="${width - padding}" y="${padding + 20}" text-anchor="end" fill="${textColor}" font-family="Arial, sans-serif" font-size="12">ON: ${onPercent}%</text>`;
-        svg += `<text x="${width - padding}" y="${padding + 35}" text-anchor="end" fill="${textColor}" font-family="Arial, sans-serif" font-size="12">OFF: ${offPercent}%</text>`;
+        svg += `<text x="${width - padding}" y="${padding + 20}" text-anchor="end" fill="${textColor}" font-family="sans-serif" font-size="12">ON: ${onPercent}%</text>`;
+        svg += `<text x="${width - padding}" y="${padding + 35}" text-anchor="end" fill="${textColor}" font-family="sans-serif" font-size="12">OFF: ${offPercent}%</text>`;
 
         svg += `</svg>`;
         return svg;
@@ -129,11 +129,21 @@ export class ChartGenerator {
         }
 
         const svg = this.generateSVG(historyPoints, period);
-        const png = await sharp(Buffer.from(svg))
-            .png()
-            .toBuffer();
+        const resvg = new Resvg(svg, {
+            background: '#1a1a1a',
+            fitTo: {
+                mode: 'width',
+                value: 800
+            },
+            font: {
+                loadSystemFonts: true,
+                defaultFontFamily: 'sans-serif'
+            }
+        });
+        const pngData = resvg.render();
+        const pngBuffer = pngData.asPng();
         
-        return png;
+        return Buffer.from(pngBuffer);
     }
 
     async generateTimelineChart(historyPoints: HistoryPoint[], hours: number): Promise<Buffer> {
