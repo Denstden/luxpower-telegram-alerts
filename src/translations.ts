@@ -1,0 +1,390 @@
+export type Language = 'uk' | 'en';
+
+export interface Translations {
+  menu: {
+    mainMenu: string;
+    selectOption: string;
+    version: string;
+  };
+  buttons: {
+    inverterInfo: string;
+    status: string;
+    chart1Day: string;
+    chart1Week: string;
+    chart1Month: string;
+    subscribe: string;
+    unsubscribe: string;
+    help: string;
+    refresh: string;
+    mainMenu: string;
+    chart1DayFull: string;
+    chart1WeekFull: string;
+    language: string;
+  };
+  notifications: {
+    electricityAppeared: string;
+    electricityDisappeared: string;
+    wasOffFor: string;
+    wasOnFor: string;
+    gridPower: string;
+    time: string;
+    useInfo: string;
+  };
+  inverter: {
+    title: string;
+    time: string;
+    systemStatus: string;
+    currentState: string;
+    gridStatus: string;
+    electricity: string;
+    voltage: string;
+    consumption: string;
+    grid: string;
+    battery: string;
+    batteryStatus: string;
+    soc: string;
+    power: string;
+    solarInput: string;
+    pv1: string;
+    pv2: string;
+    pv3: string;
+    total: string;
+    powerFlow: string;
+    inverter: string;
+    epsBackup: string;
+    statusOn: string;
+    statusOff: string;
+    statusUnknown: string;
+    batteryCharging: string;
+    batteryDischarging: string;
+    batteryStandby: string;
+  };
+  status: {
+    title: string;
+    current: string;
+    since: string;
+    sessionStats: string;
+    totalOnTime: string;
+    totalOffTime: string;
+    sessionDuration: string;
+    notAvailable: string;
+  };
+  charts: {
+    generating: string;
+    title: string;
+    greenOn: string;
+    redOff: string;
+    noData: string;
+    notAvailable: string;
+    error: string;
+    selectTimeRange: string;
+    last24Hours: string;
+    last7Days: string;
+    last30Days: string;
+    period1Day: string;
+    period1Week: string;
+    period1Month: string;
+    periodHours: string;
+  };
+  subscribe: {
+    subscribed: string;
+    willReceive: string;
+    useButtons: string;
+    alreadySubscribed: string;
+    unsubscribed: string;
+    noLongerReceive: string;
+    useStart: string;
+    notSubscribed: string;
+  };
+  help: {
+    title: string;
+    mainCommands: string;
+    start: string;
+    stop: string;
+    menu: string;
+    statusInfo: string;
+    status: string;
+    info: string;
+    charts: string;
+    chart: string;
+    chartWeek: string;
+    chartMonth: string;
+    other: string;
+    help: string;
+    useButtons: string;
+    autoNotify: string;
+    version: string;
+  };
+  errors: {
+    inverterNotAvailable: string;
+    chartNotAvailable: string;
+    errorFetching: string;
+    errorGenerating: string;
+  };
+  language: {
+    changed: string;
+    current: string;
+    select: string;
+  };
+}
+
+const translations: Record<Language, Translations> = {
+  uk: {
+    menu: {
+      mainMenu: '🏠 Головне меню',
+      selectOption: 'Виберіть опцію:',
+      version: 'Версія:'
+    },
+    buttons: {
+      inverterInfo: '📊 Інформація про інвертор',
+      status: '📈 Статус',
+      chart1Day: '📉 1 День',
+      chart1Week: '📉 1 Тиждень',
+      chart1Month: '📉 1 Місяць',
+      subscribe: '✅ Підписатися',
+      unsubscribe: '❌ Відписатися',
+      help: 'ℹ️ Допомога',
+      refresh: '🔄 Оновити',
+      mainMenu: '🏠 Головне меню',
+      chart1DayFull: '📉 Графік за 1 день',
+      chart1WeekFull: '📉 Графік за 1 тиждень',
+      language: '🌐 Мова'
+    },
+    notifications: {
+      electricityAppeared: '⚡ <b>Електрика з\'явилася!</b>',
+      electricityDisappeared: '🔌 <b>Електрика зникла!</b>',
+      wasOffFor: '\n⚫ Була вимкнена протягом:',
+      wasOnFor: '\n⚫ Була увімкнена протягом:',
+      gridPower: 'Потужність мережі:',
+      time: 'Час:',
+      useInfo: 'Використовуйте /info для перегляду повної інформації про інвертор.'
+    },
+    inverter: {
+      title: '⚡ Статус інвертора',
+      time: '📅 Час:',
+      systemStatus: '🔄 Статус системи:',
+      currentState: '⏱️ Поточний стан:',
+      gridStatus: '🔌 Статус мережі',
+      electricity: 'Електрика:',
+      voltage: 'Напруга:',
+      consumption: 'Споживання:',
+      grid: 'МЕРЕЖА:',
+      battery: '🔋 Акумулятор',
+      batteryStatus: 'Статус:',
+      soc: 'SOC:',
+      power: 'Потужність:',
+      solarInput: '☀️ Сонячне навантаження',
+      pv1: 'PV1:',
+      pv2: 'PV2:',
+      pv3: 'PV3:',
+      total: 'Всього:',
+      powerFlow: '⚙️ Потік потужності',
+      inverter: 'Інвертор:',
+      epsBackup: 'Резервне живлення EPS:',
+      statusOn: '🟢 УВІМКНЕНО',
+      statusOff: '🔴 ВИМКНЕНО',
+      statusUnknown: '⚪ Невідомо',
+      batteryCharging: '🔋 Зарядка',
+      batteryDischarging: '⚡ Розрядка',
+      batteryStandby: '⚪ Очікування'
+    },
+    status: {
+      title: '⚡ Статус електрики',
+      current: 'Поточний:',
+      since: 'З:',
+      sessionStats: '📈 Статистика сесії (з моменту запуску сервісу)',
+      totalOnTime: 'Загальний час УВІМКНЕНО:',
+      totalOffTime: 'Загальний час ВИМКНЕНО:',
+      sessionDuration: 'Тривалість сесії:',
+      notAvailable: 'Відстеження статусу недоступне.'
+    },
+    charts: {
+      generating: '📊 Генерація графіка для',
+      title: '📊 <b>Історія статусу електрики</b>',
+      greenOn: '🟢 Зелений = УВІМКНЕНО',
+      redOff: '🔴 Червоний = ВИМКНЕНО',
+      noData: '❌ Немає даних історії для',
+      notAvailable: '❌ Генерація графіків недоступна. Сервіс може бути не повністю налаштований.',
+      error: '❌ Помилка генерації графіка:',
+      selectTimeRange: 'Виберіть часовий діапазон:',
+      last24Hours: 'Останні 24 години',
+      last7Days: 'Останні 7 днів',
+      last30Days: 'Останні 30 днів',
+      period1Day: '1 День',
+      period1Week: '1 Тиждень',
+      period1Month: '1 Місяць',
+      periodHours: 'годин'
+    },
+    subscribe: {
+      subscribed: '✅ <b>Підписано!</b>',
+      willReceive: 'Тепер ви будете отримувати сповіщення про статус електрики.',
+      useButtons: 'Використовуйте кнопки нижче для взаємодії з ботом.',
+      alreadySubscribed: 'Ви вже підписані! Використовуйте кнопки нижче для взаємодії з ботом.',
+      unsubscribed: '❌ <b>Відписано</b>',
+      noLongerReceive: 'Ви більше не будете отримувати сповіщення.',
+      useStart: 'Використовуйте /start для повторної підписки.',
+      notSubscribed: 'Ви не підписані. Використовуйте /start для підписки.'
+    },
+    help: {
+      title: '📖 Доступні команди',
+      mainCommands: '<b>Основні команди:</b>',
+      start: '/start - Підписатися на сповіщення',
+      stop: '/stop - Відписатися від сповіщень',
+      menu: '/menu - Показати головне меню з кнопками',
+      statusInfo: '<b>Статус та інформація:</b>',
+      status: '/status - Перевірити статус електрики та статистику',
+      info: '/info або /inverter - Отримати детальну інформацію про інвертор',
+      charts: '<b>Графіки:</b>',
+      chart: '/chart або /chart_day - Переглянути графік за 1 день',
+      chartWeek: '/chart_week - Переглянути графік за 1 тиждень',
+      chartMonth: '/chart_month - Переглянути графік за 1 місяць',
+      other: '<b>Інше:</b>',
+      help: '/help - Показати це повідомлення допомоги',
+      useButtons: 'Ви також можете використовувати кнопки в меню для швидкого доступу.',
+      autoNotify: 'Бот автоматично сповістить вас, коли електрика з\'явиться або зникне.',
+      version: '📦 <b>Версія:</b>'
+    },
+    errors: {
+      inverterNotAvailable: '❌ Інформація про інвертор недоступна. Сервіс може бути не повністю налаштований.',
+      chartNotAvailable: '❌ Генерація графіків недоступна. Сервіс може бути не повністю налаштований.',
+      errorFetching: '❌ Помилка отримання інформації про інвертор:',
+      errorGenerating: '❌ Помилка генерації графіка:'
+    },
+    language: {
+      changed: '🌐 Мову змінено на',
+      current: 'Поточна мова:',
+      select: 'Виберіть мову:'
+    }
+  },
+  en: {
+    menu: {
+      mainMenu: '🏠 Main Menu',
+      selectOption: 'Select an option:',
+      version: 'Version:'
+    },
+    buttons: {
+      inverterInfo: '📊 Inverter Info',
+      status: '📈 Status',
+      chart1Day: '📉 1 Day',
+      chart1Week: '📉 1 Week',
+      chart1Month: '📉 1 Month',
+      subscribe: '✅ Subscribe',
+      unsubscribe: '❌ Unsubscribe',
+      help: 'ℹ️ Help',
+      refresh: '🔄 Refresh',
+      mainMenu: '🏠 Main Menu',
+      chart1DayFull: '📉 1 Day Chart',
+      chart1WeekFull: '📉 1 Week Chart',
+      language: '🌐 Language'
+    },
+    notifications: {
+      electricityAppeared: '⚡ <b>Electricity Appeared!</b>',
+      electricityDisappeared: '🔌 <b>Electricity Disappeared!</b>',
+      wasOffFor: '\n⚫ Was off for:',
+      wasOnFor: '\n⚫ Was on for:',
+      gridPower: 'Grid Power:',
+      time: 'Time:',
+      useInfo: 'Use /info to see full inverter status.'
+    },
+    inverter: {
+      title: '⚡ Inverter Status',
+      time: '📅 Time:',
+      systemStatus: '🔄 System Status:',
+      currentState: '⏱️ Current state:',
+      gridStatus: '🔌 Grid Status',
+      electricity: 'Electricity:',
+      voltage: 'Voltage:',
+      consumption: 'Consumption:',
+      grid: 'GRID:',
+      battery: '🔋 Battery',
+      batteryStatus: 'Status:',
+      soc: 'SOC:',
+      power: 'Power:',
+      solarInput: '☀️ Solar Input',
+      pv1: 'PV1:',
+      pv2: 'PV2:',
+      pv3: 'PV3:',
+      total: 'Total:',
+      powerFlow: '⚙️ Power Flow',
+      inverter: 'Inverter:',
+      epsBackup: 'EPS Backup:',
+      statusOn: '🟢 ON',
+      statusOff: '🔴 OFF',
+      statusUnknown: '⚪ Unknown',
+      batteryCharging: '🔋 Charging',
+      batteryDischarging: '⚡ Discharging',
+      batteryStandby: '⚪ Standby'
+    },
+    status: {
+      title: '⚡ Electricity Status',
+      current: 'Current:',
+      since: 'Since:',
+      sessionStats: '📈 Session Stats (since service start)',
+      totalOnTime: 'Total ON time:',
+      totalOffTime: 'Total OFF time:',
+      sessionDuration: 'Session duration:',
+      notAvailable: 'Status tracking is not available.'
+    },
+    charts: {
+      generating: '📊 Generating chart for',
+      title: '📊 <b>Electricity Status History</b>',
+      greenOn: '🟢 Green = ON',
+      redOff: '🔴 Red = OFF',
+      noData: '❌ No history data available for',
+      notAvailable: '❌ Chart generation is not available. The service may not be fully configured.',
+      error: '❌ Error generating chart:',
+      selectTimeRange: 'Select a time range:',
+      last24Hours: 'Last 24 Hours',
+      last7Days: 'Last 7 Days',
+      last30Days: 'Last 30 Days',
+      period1Day: '1 Day',
+      period1Week: '1 Week',
+      period1Month: '1 Month',
+      periodHours: 'hours'
+    },
+    subscribe: {
+      subscribed: '✅ <b>Subscribed!</b>',
+      willReceive: 'You will now receive electricity status notifications.',
+      useButtons: 'Use the buttons below to interact with the bot.',
+      alreadySubscribed: 'You are already subscribed! Use the buttons below to interact with the bot.',
+      unsubscribed: '❌ <b>Unsubscribed</b>',
+      noLongerReceive: 'You will no longer receive notifications.',
+      useStart: 'Use /start to subscribe again.',
+      notSubscribed: 'You are not subscribed. Use /start to subscribe.'
+    },
+    help: {
+      title: '📖 Available Commands',
+      mainCommands: '<b>Main Commands:</b>',
+      start: '/start - Subscribe to notifications',
+      stop: '/stop - Unsubscribe from notifications',
+      menu: '/menu - Show main menu with buttons',
+      statusInfo: '<b>Status & Info:</b>',
+      status: '/status - Check electricity status and statistics',
+      info: '/info or /inverter - Get detailed inverter information',
+      charts: '<b>Charts:</b>',
+      chart: '/chart or /chart_day - View 1 day chart',
+      chartWeek: '/chart_week - View 1 week chart',
+      chartMonth: '/chart_month - View 1 month chart',
+      other: '<b>Other:</b>',
+      help: '/help - Show this help message',
+      useButtons: 'You can also use the buttons in the menu for quick access.',
+      autoNotify: 'The bot will automatically notify you when electricity appears or disappears.',
+      version: '📦 <b>Version:</b>'
+    },
+    errors: {
+      inverterNotAvailable: '❌ Inverter information is not available. The service may not be fully configured.',
+      chartNotAvailable: '❌ Chart generation is not available. The service may not be fully configured.',
+      errorFetching: '❌ Error fetching inverter information:',
+      errorGenerating: '❌ Error generating chart:'
+    },
+    language: {
+      changed: '🌐 Language changed to',
+      current: 'Current language:',
+      select: 'Select language:'
+    }
+  }
+};
+
+export function getTranslations(lang: Language = 'uk'): Translations {
+  return translations[lang];
+}

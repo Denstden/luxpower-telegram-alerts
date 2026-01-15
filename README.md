@@ -63,6 +63,8 @@ docker run -d \
   -v $(pwd)/.env:/app/.env:ro \
   -v $(pwd)/subscribers.json:/app/subscribers.json \
   -v $(pwd)/status.json:/app/status.json \
+  -v $(pwd)/user-preferences.json:/app/user-preferences.json \
+  -v $(pwd)/history-cache:/app/history-cache \
   -v /etc/localtime:/etc/localtime:ro \
   -v /etc/timezone:/etc/timezone:ro \
   -e NODE_ENV=production \
@@ -73,14 +75,15 @@ docker run -d \
 - `./.env:/app/.env:ro` - Configuration file with credentials (read-only for security)
 - `./subscribers.json:/app/subscribers.json` - Subscriber data persistence (read-write)
 - `./status.json:/app/status.json` - Status and duration tracking persistence (read-write)
+- `./user-preferences.json:/app/user-preferences.json` - User language preferences persistence (read-write)
 - `./history-cache:/app/history-cache` - History data cache directory (read-write)
 - `/etc/localtime:/etc/localtime:ro` - System timezone for correct timestamps (read-only)
 - `/etc/timezone:/etc/timezone:ro` - System timezone configuration (read-only)
 
-**Note:** Make sure the `subscribers.json` and `status.json` files exist before starting the container. They will be created automatically if missing, but it's better to create them with proper permissions:
+**Note:** Make sure the `subscribers.json`, `status.json`, and `user-preferences.json` files exist before starting the container. They will be created automatically if missing, but it's better to create them with proper permissions:
 ```bash
-touch subscribers.json status.json
-chmod 666 subscribers.json status.json
+touch subscribers.json status.json user-preferences.json
+chmod 666 subscribers.json status.json user-preferences.json
 ```
 
 ## Bot Commands
@@ -91,6 +94,7 @@ chmod 666 subscribers.json status.json
 - `/info` or `/inverter` - Get current inverter status (grid, battery, solar, power flow)
 - `/menu` - Show main menu with buttons
 - `/help` - Show all available commands
+- `/language` or `/lang` - Change language (Ukrainian/English)
 
 The `/info` command displays:
 - **Grid Status**: Electricity status, voltage, consumption, GRID power
@@ -108,3 +112,4 @@ All users who send `/start` will automatically receive notifications when electr
 - `LUXPOWER_API_ENDPOINT`: API endpoint URL (default: https://eu.luxpowertek.com)
 
 Subscribers are automatically saved to `subscribers.json` file (excluded from git).
+User language preferences are saved to `user-preferences.json` file (excluded from git).

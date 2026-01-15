@@ -9,6 +9,7 @@ dist
 .DS_Store
 subscribers.json
 status.json
+user-preferences.json
 .idea
 *.iml
 *.swp

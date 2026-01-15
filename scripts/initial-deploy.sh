@@ -45,6 +45,14 @@ else
   ssh "$REMOTE_USER@$REMOTE_HOST" "touch $REMOTE_DIR/status.json && chmod 666 $REMOTE_DIR/status.json"
 fi
 
+if [ -f "user-preferences.json" ]; then
+  echo "6. Copying user-preferences.json..."
+  scp user-preferences.json "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/"
+else
+  echo "6. Creating empty user-preferences.json on remote host..."
+  ssh "$REMOTE_USER@$REMOTE_HOST" "touch $REMOTE_DIR/user-preferences.json && chmod 666 $REMOTE_DIR/user-preferences.json"
+fi
+
 echo ""
 echo "✅ Files copied successfully!"
 echo ""
