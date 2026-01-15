@@ -5,6 +5,8 @@ import { ChartGenerator } from './chart-generator';
 import * as packageJson from '../package.json';
 import FormData from 'form-data';
 import { logger } from './logger';
+import { getTranslations, Language } from './translations';
+import { UserPreferencesManager } from './user-preferences';
 
 interface TelegramResponse {
   ok: boolean;
@@ -52,6 +54,7 @@ export class TelegramBot {
   private botToken: string;
   private apiUrl: string;
   private subscribers: SubscribersManager;
+  private preferences: UserPreferencesManager;
   private lastUpdateId: number = 0;
   private luxpower: LuxpowerClient | null = null;
   private plantId: string | null = null;
@@ -64,7 +67,13 @@ export class TelegramBot {
     this.botToken = botToken;
     this.apiUrl = `https://api.telegram.org/bot${botToken}`;
     this.subscribers = new SubscribersManager();
+    this.preferences = new UserPreferencesManager();
     this.chartGenerator = new ChartGenerator();
+  }
+
+  private t(chatId: string) {
+    const lang = this.preferences.getLanguage(chatId);
+    return getTranslations(lang);
   }
 
   private async deleteWebhook(): Promise<void> {
@@ -127,25 +136,30 @@ export class TelegramBot {
   }
 
   private getMainMenu(chatId?: string): any {
+    if (!chatId) {
+      chatId = '';
+    }
+    const t = this.t(chatId);
     const isSubscribed = chatId ? this.subscribers.has(chatId) : false;
     const subscribeButton = isSubscribed 
-      ? [{ text: '❌ Unsubscribe', callback_data: 'unsubscribe' }]
-      : [{ text: '✅ Subscribe', callback_data: 'subscribe' }];
+      ? [{ text: t.buttons.unsubscribe, callback_data: 'unsubscribe' }]
+      : [{ text: t.buttons.subscribe, callback_data: 'subscribe' }];
     
     return {
       inline_keyboard: [
         [
-          { text: '📊 Inverter Info', callback_data: 'info' },
-          { text: '📈 Status', callback_data: 'status' }
+          { text: t.buttons.inverterInfo, callback_data: 'info' },
+          { text: t.buttons.status, callback_data: 'status' }
         ],
         [
-          { text: '📉 1 Day', callback_data: 'chart_24' },
-          { text: '📉 1 Week', callback_data: 'chart_168' },
-          { text: '📉 1 Month', callback_data: 'chart_720' }
+          { text: t.buttons.chart1Day, callback_data: 'chart_24' },
+          { text: t.buttons.chart1Week, callback_data: 'chart_168' },
+          { text: t.buttons.chart1Month, callback_data: 'chart_720' }
         ],
         subscribeButton,
         [
-          { text: 'ℹ️ Help', callback_data: 'help' }
+          { text: t.buttons.help, callback_data: 'help' },
+          { text: t.buttons.language, callback_data: 'language' }
         ]
       ]
     };
@@ -168,45 +182,57 @@ export class TelegramBot {
   }
 
   async notifyElectricityAppeared(gridPower: number, previousOffDuration: number = 0): Promise<void> {
-    const offDurationText = previousOffDuration > 0 ? `\n⚫ Was off for: ${this.formatDuration(previousOffDuration)}` : '';
-    const message = `⚡ <b>Electricity Appeared!</b>\n\nGrid Power: ${gridPower.toFixed(2)} W${offDurationText}\nTime: ${new Date().toLocaleString()}\n\nUse /info to see full inverter status.`;
-    const keyboard = {
-      inline_keyboard: [
-        [
-          { text: '📊 Inverter Info', callback_data: 'info' },
-          { text: '📈 Status', callback_data: 'status' }
-        ],
-        [
-          { text: '📉 1 Day Chart', callback_data: 'chart_24' },
-          { text: '📉 1 Week Chart', callback_data: 'chart_168' }
-        ],
-        [
-          { text: '🏠 Main Menu', callback_data: 'menu' }
+    const chatIds = this.subscribers.getAll();
+    for (const chatId of chatIds) {
+      const t = this.t(chatId);
+      const offDurationText = previousOffDuration > 0 ? `${t.notifications.wasOffFor} ${this.formatDuration(previousOffDuration)}` : '';
+      const message = `${t.notifications.electricityAppeared}\n\n${t.notifications.gridPower} ${gridPower.toFixed(2)} W${offDurationText}\n${t.notifications.time} ${new Date().toLocaleString()}\n\n${t.notifications.useInfo}`;
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: t.buttons.inverterInfo, callback_data: 'info' },
+            { text: t.buttons.status, callback_data: 'status' }
+          ],
+          [
+            { text: t.buttons.chart1DayFull, callback_data: 'chart_24' },
+            { text: t.buttons.chart1WeekFull, callback_data: 'chart_168' }
+          ],
+          [
+            { text: t.buttons.mainMenu, callback_data: 'menu' }
+          ]
         ]
-      ]
-    };
-    await this.broadcastMessageWithKeyboard(message, keyboard);
+      };
+      await this.sendMessage(chatId, message, keyboard).catch(error => {
+        logger.warn(`Failed to send to ${chatId}: ${error.message}`);
+      });
+    }
   }
 
   async notifyElectricityDisappeared(previousOnDuration: number = 0): Promise<void> {
-    const onDurationText = previousOnDuration > 0 ? `\n⚫ Was on for: ${this.formatDuration(previousOnDuration)}` : '';
-    const message = `🔌 <b>Electricity Disappeared!</b>${onDurationText}\n\nTime: ${new Date().toLocaleString()}\n\nUse /info to see full inverter status.`;
-    const keyboard = {
-      inline_keyboard: [
-        [
-          { text: '📊 Inverter Info', callback_data: 'info' },
-          { text: '📈 Status', callback_data: 'status' }
-        ],
-        [
-          { text: '📉 1 Day Chart', callback_data: 'chart_24' },
-          { text: '📉 1 Week Chart', callback_data: 'chart_168' }
-        ],
-        [
-          { text: '🏠 Main Menu', callback_data: 'menu' }
+    const chatIds = this.subscribers.getAll();
+    for (const chatId of chatIds) {
+      const t = this.t(chatId);
+      const onDurationText = previousOnDuration > 0 ? `${t.notifications.wasOnFor} ${this.formatDuration(previousOnDuration)}` : '';
+      const message = `${t.notifications.electricityDisappeared}${onDurationText}\n\n${t.notifications.time} ${new Date().toLocaleString()}\n\n${t.notifications.useInfo}`;
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: t.buttons.inverterInfo, callback_data: 'info' },
+            { text: t.buttons.status, callback_data: 'status' }
+          ],
+          [
+            { text: t.buttons.chart1DayFull, callback_data: 'chart_24' },
+            { text: t.buttons.chart1WeekFull, callback_data: 'chart_168' }
+          ],
+          [
+            { text: t.buttons.mainMenu, callback_data: 'menu' }
+          ]
         ]
-      ]
-    };
-    await this.broadcastMessageWithKeyboard(message, keyboard);
+      };
+      await this.sendMessage(chatId, message, keyboard).catch(error => {
+        logger.warn(`Failed to send to ${chatId}: ${error.message}`);
+      });
+    }
   }
 
   private async broadcastMessageWithKeyboard(text: string, replyMarkup: any): Promise<void> {
@@ -271,8 +297,18 @@ export class TelegramBot {
               } else if (data === 'help') {
                 await this.sendHelp(chatId);
               } else if (data === 'menu') {
+                const t = this.t(chatId);
                 const version = packageJson.version || 'unknown';
-                await this.sendMessage(chatId, `🏠 <b>Main Menu</b>\n\nSelect an option:\n\n📦 <b>Version:</b> ${version}`, this.getMainMenu(chatId));
+                await this.sendMessage(chatId, `${t.menu.mainMenu}\n\n${t.menu.selectOption}\n\n📦 <b>${t.menu.version}</b> ${version}`, this.getMainMenu(chatId));
+              } else if (data === 'language') {
+                await this.handleLanguageSelection(chatId);
+              } else if (data?.startsWith('lang_')) {
+                const lang = data.replace('lang_', '') as Language;
+                if (lang === 'uk' || lang === 'en') {
+                  this.preferences.setLanguage(chatId, lang);
+                  const t = this.t(chatId);
+                  await this.sendMessage(chatId, `${t.language.changed} ${lang === 'uk' ? '🇺🇦 Українська' : '🇬🇧 English'}`, this.getMainMenu(chatId));
+                }
               } else if (data?.startsWith('chart_')) {
                 const hours = parseInt(data.replace('chart_', ''), 10);
                 await this.sendChart(chatId, hours);
@@ -297,8 +333,11 @@ export class TelegramBot {
               } else if (text === '/help') {
                 await this.sendHelp(chatId);
               } else if (text === '/menu') {
+                const t = this.t(chatId);
                 const version = packageJson.version || 'unknown';
-                await this.sendMessage(chatId, `🏠 <b>Main Menu</b>\n\nSelect an option:\n\n📦 <b>Version:</b> ${version}`, this.getMainMenu(chatId));
+                await this.sendMessage(chatId, `${t.menu.mainMenu}\n\n${t.menu.selectOption}\n\n📦 <b>${t.menu.version}</b> ${version}`, this.getMainMenu(chatId));
+              } else if (text === '/language' || text === '/lang') {
+                await this.handleLanguageSelection(chatId);
               } else if (text === '/chart' || text === '/history') {
                 await this.sendChart(chatId, 24);
               } else if (text === '/chart_day' || text === '/chart_1d') {
@@ -374,8 +413,9 @@ export class TelegramBot {
   }
 
   private async sendInverterInfo(chatId: string): Promise<void> {
+    const t = this.t(chatId);
     if (!this.luxpower || !this.plantId) {
-      await this.sendMessage(chatId, '❌ Inverter information is not available. The service may not be fully configured.');
+      await this.sendMessage(chatId, t.errors.inverterNotAvailable);
       return;
     }
 
@@ -404,165 +444,169 @@ export class TelegramBot {
       const statusText = data.statusText || 'unknown';
       const deviceTime = data.deviceTime || 'N/A';
 
-      const electricityStatus = status.hasElectricity ? '🟢 ON' : '🔴 OFF';
+      const electricityStatus = status.hasElectricity ? t.inverter.statusOn : t.inverter.statusOff;
       let batteryStatus: string;
       if (batteryPower > 0) {
-        batteryStatus = '🔋 Charging';
+        batteryStatus = t.inverter.batteryCharging;
       } else if (batteryPower < 0) {
         if (batterySOC >= 100 && Math.abs(batteryPower) < 20) {
-          batteryStatus = '⚪ Standby';
+          batteryStatus = t.inverter.batteryStandby;
         } else {
-          batteryStatus = '⚡ Discharging';
+          batteryStatus = t.inverter.batteryDischarging;
         }
       } else {
-        batteryStatus = '⚪ Standby';
+        batteryStatus = t.inverter.batteryStandby;
       }
 
-      let message = `⚡ <b>Inverter Status</b>\n\n`;
-      message += `📅 <b>Time:</b> ${deviceTime}\n`;
-      message += `🔄 <b>System Status:</b> ${statusText}\n`;
+      let message = `${t.inverter.title}\n\n`;
+      message += `${t.inverter.time} ${deviceTime}\n`;
+      message += `${t.inverter.systemStatus} ${statusText}\n`;
       
       if (this.statusTracker) {
         const stats = this.statusTracker();
         if (stats.currentDuration > 0) {
-          message += `⏱️ <b>Current state:</b> ${this.formatDuration(stats.currentDuration)}\n`;
+          message += `${t.inverter.currentState} ${this.formatDuration(stats.currentDuration)}\n`;
         }
       }
       message += `\n`;
       
-      message += `🔌 <b>Grid Status</b>\n`;
-      message += `   Electricity: ${electricityStatus}\n`;
-      message += `   Voltage: ${gridVoltage} V\n`;
-      message += `   Consumption: ${consumptionPower} W\n`;
-      message += `   GRID: ${powerToUser} W\n`;
+      message += `${t.inverter.gridStatus}\n`;
+      message += `   ${t.inverter.electricity} ${electricityStatus}\n`;
+      message += `   ${t.inverter.voltage} ${gridVoltage} V\n`;
+      message += `   ${t.inverter.consumption} ${consumptionPower} W\n`;
+      message += `   ${t.inverter.grid} ${powerToUser} W\n`;
       message += `\n`;
 
-      message += `🔋 <b>Battery</b>\n`;
-      message += `   Status: ${batteryStatus}\n`;
-      message += `   SOC: ${batterySOC}%\n`;
-      message += `   Voltage: ${batteryVoltage} V\n`;
-      message += `   Power: ${batteryPower} W\n\n`;
+      message += `${t.inverter.battery}\n`;
+      message += `   ${t.inverter.batteryStatus} ${batteryStatus}\n`;
+      message += `   ${t.inverter.soc} ${batterySOC}%\n`;
+      message += `   ${t.inverter.voltage} ${batteryVoltage} V\n`;
+      message += `   ${t.inverter.power} ${batteryPower} W\n\n`;
 
       if (totalPVPower > 0 || pv1Voltage !== '0.0' || pv2Voltage !== '0.0' || pv3Voltage !== '0.0') {
-        message += `☀️ <b>Solar Input</b>\n`;
+        message += `${t.inverter.solarInput}\n`;
         if (pv1Power > 0 || pv1Voltage !== '0.0') {
-          message += `   PV1: ${pv1Power} W (${pv1Voltage} V)\n`;
+          message += `   ${t.inverter.pv1} ${pv1Power} W (${pv1Voltage} V)\n`;
         }
         if (pv2Power > 0 || pv2Voltage !== '0.0') {
-          message += `   PV2: ${pv2Power} W (${pv2Voltage} V)\n`;
+          message += `   ${t.inverter.pv2} ${pv2Power} W (${pv2Voltage} V)\n`;
         }
         if (pv3Power > 0 || pv3Voltage !== '0.0') {
-          message += `   PV3: ${pv3Power} W (${pv3Voltage} V)\n`;
+          message += `   ${t.inverter.pv3} ${pv3Power} W (${pv3Voltage} V)\n`;
         }
-        message += `   Total: ${totalPVPower} W\n\n`;
+        message += `   ${t.inverter.total} ${totalPVPower} W\n\n`;
       }
 
-      message += `⚙️ <b>Power Flow</b>\n`;
-      message += `   Inverter: ${inverterPower} W\n`;
+      message += `${t.inverter.powerFlow}\n`;
+      message += `   ${t.inverter.inverter} ${inverterPower} W\n`;
       if (epsPower > 0) {
-        message += `   EPS Backup: ${epsPower} W\n`;
+        message += `   ${t.inverter.epsBackup} ${epsPower} W\n`;
       }
 
       const keyboard = {
         inline_keyboard: [
-          [{ text: '🔄 Refresh', callback_data: 'info' }],
-          [{ text: '🏠 Main Menu', callback_data: 'menu' }]
+          [{ text: t.buttons.refresh, callback_data: 'info' }],
+          [{ text: t.buttons.mainMenu, callback_data: 'menu' }]
         ]
       };
 
       await this.sendMessage(chatId, message, keyboard);
     } catch (error: any) {
-      await this.sendMessage(chatId, `❌ Error fetching inverter information: ${error.message}`);
+      await this.sendMessage(chatId, `${t.errors.errorFetching} ${error.message}`);
       logger.error(`Error sending inverter info: ${error.message}`);
     }
   }
 
   private async handleSubscribe(chatId: string, userName: string): Promise<void> {
+    const t = this.t(chatId);
     const added = this.subscribers.add(chatId);
     if (added) {
       await this.sendMessage(
         chatId,
-        `✅ <b>Subscribed!</b>\n\nYou will now receive electricity status notifications.\n\nUse the buttons below to interact with the bot.`,
+        `${t.subscribe.subscribed}\n\n${t.subscribe.willReceive}\n\n${t.subscribe.useButtons}`,
         this.getMainMenu(chatId)
       );
       logger.info(`User ${userName} (${chatId}) subscribed. Total subscribers: ${this.subscribers.count()}`);
     } else {
       await this.sendMessage(
         chatId,
-        `You are already subscribed! Use the buttons below to interact with the bot.`,
+        `${t.subscribe.alreadySubscribed}`,
         this.getMainMenu(chatId)
       );
     }
   }
 
   private async handleUnsubscribe(chatId: string, userName: string): Promise<void> {
+    const t = this.t(chatId);
     const removed = this.subscribers.remove(chatId);
     if (removed) {
       await this.sendMessage(
         chatId,
-        `❌ <b>Unsubscribed</b>\n\nYou will no longer receive notifications.\n\nUse /start to subscribe again.`
+        `${t.subscribe.unsubscribed}\n\n${t.subscribe.noLongerReceive}\n\n${t.subscribe.useStart}`
       );
       logger.info(`User ${userName} (${chatId}) unsubscribed. Total subscribers: ${this.subscribers.count()}`);
     } else {
-      await this.sendMessage(chatId, `You are not subscribed. Use /start to subscribe.`);
+      await this.sendMessage(chatId, t.subscribe.notSubscribed);
     }
   }
 
   private async handleStatusCommand(chatId: string): Promise<void> {
+    const t = this.t(chatId);
     let statusInfo = '';
     
     if (this.statusTracker) {
       const stats = this.statusTracker();
-      const statusText = stats.currentStatus === true ? '🟢 ON' : stats.currentStatus === false ? '🔴 OFF' : '⚪ Unknown';
+      const statusText = stats.currentStatus === true ? t.inverter.statusOn : stats.currentStatus === false ? t.inverter.statusOff : t.inverter.statusUnknown;
       
-      statusInfo += `⚡ <b>Electricity Status</b>\n`;
+      statusInfo += `${t.status.title}\n`;
       
       if (stats.statusChangeTime && stats.currentDuration >= 0) {
         const durationFormatted = this.formatDuration(stats.currentDuration);
-        statusInfo += `Current: ${statusText} (${durationFormatted})\n`;
-        statusInfo += `Since: ${stats.statusChangeTime.toLocaleString()}\n`;
+        statusInfo += `${t.status.current} ${statusText} (${durationFormatted})\n`;
+        statusInfo += `${t.status.since} ${stats.statusChangeTime.toLocaleString()}\n`;
       } else if (stats.statusChangeTime) {
         const durationFormatted = this.formatDuration(Math.abs(stats.currentDuration));
-        statusInfo += `Current: ${statusText} (${durationFormatted})\n`;
-        statusInfo += `Since: ${stats.statusChangeTime.toLocaleString()}\n`;
+        statusInfo += `${t.status.current} ${statusText} (${durationFormatted})\n`;
+        statusInfo += `${t.status.since} ${stats.statusChangeTime.toLocaleString()}\n`;
       } else {
-        statusInfo += `Current: ${statusText}\n`;
+        statusInfo += `${t.status.current} ${statusText}\n`;
       }
       
       if (stats.sessionDuration > 0) {
         const sessionHours = Math.floor(stats.sessionDuration / 3600);
         const sessionMinutes = Math.floor((stats.sessionDuration % 3600) / 60);
-        statusInfo += `\n📈 <b>Session Stats</b> (since service start)\n`;
-        statusInfo += `Total ON time: ${this.formatDuration(stats.totalOnTime)}\n`;
-        statusInfo += `Total OFF time: ${this.formatDuration(stats.totalOffTime)}\n`;
-        statusInfo += `Session duration: ${sessionHours > 0 ? `${sessionHours}h ` : ''}${sessionMinutes}m`;
+        statusInfo += `\n${t.status.sessionStats}\n`;
+        statusInfo += `${t.status.totalOnTime} ${this.formatDuration(stats.totalOnTime)}\n`;
+        statusInfo += `${t.status.totalOffTime} ${this.formatDuration(stats.totalOffTime)}\n`;
+        statusInfo += `${t.status.sessionDuration} ${sessionHours > 0 ? `${sessionHours}h ` : ''}${sessionMinutes}m`;
       }
     } else {
-      statusInfo = '⚡ <b>Electricity Status</b>\n\nStatus tracking is not available.';
+      statusInfo = `${t.status.title}\n\n${t.status.notAvailable}`;
     }
     
     await this.sendMessage(chatId, statusInfo, this.getMainMenu(chatId));
   }
 
   private async sendChart(chatId: string, hours: number = 24): Promise<void> {
+    const t = this.t(chatId);
     if (!this.luxpower || !this.plantId) {
-      await this.sendMessage(chatId, '❌ Chart generation is not available. The service may not be fully configured.');
+      await this.sendMessage(chatId, t.charts.notAvailable);
       return;
     }
 
     try {
       let periodLabel = '';
       if (hours === 24) {
-        periodLabel = '1 Day';
+        periodLabel = t.charts.period1Day;
       } else if (hours === 168) {
-        periodLabel = '1 Week';
+        periodLabel = t.charts.period1Week;
       } else if (hours === 720) {
-        periodLabel = '1 Month';
+        periodLabel = t.charts.period1Month;
       } else {
-        periodLabel = `${hours} hours`;
+        periodLabel = `${hours} ${t.charts.periodHours}`;
       }
 
-      await this.sendMessage(chatId, `📊 Generating chart for ${periodLabel}...`);
+      await this.sendMessage(chatId, `${t.charts.generating} ${periodLabel}...`);
 
       const endDate = new Date();
       const startDate = new Date(endDate.getTime() - (hours * 60 * 60 * 1000));
@@ -570,11 +614,12 @@ export class TelegramBot {
       const historyData = await this.luxpower.getHistoryData(this.plantId, startDate, endDate);
 
       if (historyData.length === 0) {
-        await this.sendMessage(chatId, `❌ No history data available for ${periodLabel}.`);
+        await this.sendMessage(chatId, `${t.charts.noData} ${periodLabel}.`);
         return;
       }
 
-      const chartBuffer = await this.chartGenerator.generateTimelineChart(historyData, hours);
+      const lang = this.preferences.getLanguage(chatId);
+      const chartBuffer = await this.chartGenerator.generateTimelineChart(historyData, hours, lang);
       
       const formData = new FormData();
       formData.append('chat_id', chatId);
@@ -582,7 +627,7 @@ export class TelegramBot {
         filename: 'chart.png',
         contentType: 'image/png'
       });
-      formData.append('caption', `📊 <b>Electricity Status History</b>\n\n${periodLabel}\n\n🟢 Green = ON | 🔴 Red = OFF`);
+      formData.append('caption', `${t.charts.title}\n\n${periodLabel}\n\n${t.charts.greenOn} | ${t.charts.redOff}`);
       formData.append('parse_mode', 'HTML');
 
       await axios.post(`${this.apiUrl}/sendPhoto`, formData, {
@@ -592,45 +637,62 @@ export class TelegramBot {
       const keyboard = {
         inline_keyboard: [
           [
-            { text: '🔄 Refresh', callback_data: `chart_${hours}` },
-            { text: '📉 1 Day', callback_data: 'chart_24' },
-            { text: '📉 1 Week', callback_data: 'chart_168' },
-            { text: '📉 1 Month', callback_data: 'chart_720' }
+            { text: t.buttons.refresh, callback_data: `chart_${hours}` },
+            { text: t.buttons.chart1Day, callback_data: 'chart_24' },
+            { text: t.buttons.chart1Week, callback_data: 'chart_168' },
+            { text: t.buttons.chart1Month, callback_data: 'chart_720' }
           ],
           [
-            { text: '🏠 Main Menu', callback_data: 'menu' }
+            { text: t.buttons.mainMenu, callback_data: 'menu' }
           ]
         ]
       };
 
-      await this.sendMessage(chatId, 'Select a time range:', keyboard);
+      await this.sendMessage(chatId, t.charts.selectTimeRange, keyboard);
     } catch (error: any) {
       logger.error(`Error sending chart: ${error.message}`);
-      await this.sendMessage(chatId, `❌ Error generating chart: ${error.message}`);
+      await this.sendMessage(chatId, `${t.charts.error} ${error.message}`);
     }
   }
 
   private async sendHelp(chatId: string): Promise<void> {
+    const t = this.t(chatId);
     const version = packageJson.version || 'unknown';
-    const isSubscribed = this.subscribers.has(chatId);
-    const message = `📖 <b>Available Commands</b>\n\n` +
-      `<b>Main Commands:</b>\n` +
-      `/start - Subscribe to notifications\n` +
-      `/stop - Unsubscribe from notifications\n` +
-      `/menu - Show main menu with buttons\n\n` +
-      `<b>Status & Info:</b>\n` +
-      `/status - Check electricity status and statistics\n` +
-      `/info or /inverter - Get detailed inverter information\n\n` +
-      `<b>Charts:</b>\n` +
-      `/chart or /chart_day - View 1 day chart\n` +
-      `/chart_week - View 1 week chart\n` +
-      `/chart_month - View 1 month chart\n\n` +
-      `<b>Other:</b>\n` +
-      `/help - Show this help message\n\n` +
-      `You can also use the buttons in the menu for quick access.\n\n` +
-      `The bot will automatically notify you when electricity appears or disappears.\n\n` +
-      `📦 <b>Version:</b> ${version}`;
+    const message = `${t.help.title}\n\n` +
+      `${t.help.mainCommands}\n` +
+      `${t.help.start}\n` +
+      `${t.help.stop}\n` +
+      `${t.help.menu}\n\n` +
+      `${t.help.statusInfo}\n` +
+      `${t.help.status}\n` +
+      `${t.help.info}\n\n` +
+      `${t.help.charts}\n` +
+      `${t.help.chart}\n` +
+      `${t.help.chartWeek}\n` +
+      `${t.help.chartMonth}\n\n` +
+      `${t.help.other}\n` +
+      `${t.help.help}\n\n` +
+      `${t.help.useButtons}\n\n` +
+      `${t.help.autoNotify}\n\n` +
+      `${t.help.version} ${version}`;
     
     await this.sendMessage(chatId, message, this.getMainMenu(chatId));
+  }
+
+  private async handleLanguageSelection(chatId: string): Promise<void> {
+    const t = this.t(chatId);
+    const currentLang = this.preferences.getLanguage(chatId);
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: `🇺🇦 Українсьka${currentLang === 'uk' ? ' ✓' : ''}`, callback_data: 'lang_uk' },
+          { text: `🇬🇧 English${currentLang === 'en' ? ' ✓' : ''}`, callback_data: 'lang_en' }
+        ],
+        [
+          { text: t.buttons.mainMenu, callback_data: 'menu' }
+        ]
+      ]
+    };
+    await this.sendMessage(chatId, `${t.language.current} ${currentLang === 'uk' ? '🇺🇦 Українська' : '🇬🇧 English'}\n\n${t.language.select}`, keyboard);
   }
 }

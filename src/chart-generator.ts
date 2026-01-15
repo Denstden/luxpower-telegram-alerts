@@ -1,4 +1,5 @@
 import { Resvg } from '@resvg/resvg-js';
+import { getTranslations, Language } from './translations';
 
 interface HistoryPoint {
     timestamp: string;
@@ -6,18 +7,23 @@ interface HistoryPoint {
 }
 
 export class ChartGenerator {
-    private generateSVG(historyPoints: HistoryPoint[], period: 'day' | 'week' | 'month'): string {
+    private generateSVG(historyPoints: HistoryPoint[], period: 'day' | 'week' | 'month', lang: Language = 'en'): string {
+        const t = getTranslations(lang);
         const periodLabels = {
-            day: 'Last 24 Hours',
-            week: 'Last 7 Days',
-            month: 'Last 30 Days'
+            day: t.charts.last24Hours,
+            week: t.charts.last7Days,
+            month: t.charts.last30Days
         };
 
         const width = 800;
         const height = 400;
+        const leftPadding = lang === 'uk' ? 90 : 60;
+        const rightPadding = 60;
+        const topPadding = 60;
+        const bottomPadding = 60;
         const padding = 60;
-        const chartWidth = width - padding * 2;
-        const chartHeight = height - padding * 2;
+        const chartWidth = width - leftPadding - rightPadding;
+        const chartHeight = height - topPadding - bottomPadding;
 
         const maxPoints = 100;
         const step = Math.max(1, Math.floor(historyPoints.length / maxPoints));
@@ -37,27 +43,30 @@ export class ChartGenerator {
         let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`;
         svg += `<rect width="${width}" height="${height}" fill="${bgColor}"/>`;
         
-        svg += `<text x="${width / 2}" y="30" text-anchor="middle" fill="${textColor}" font-family="sans-serif" font-size="18" font-weight="bold">Electricity Status - ${periodLabels[period]}</text>`;
+        const title = lang === 'uk' ? 'Історія статусу електрики' : 'Electricity Status History';
+        svg += `<text x="${width / 2}" y="30" text-anchor="middle" fill="${textColor}" font-family="sans-serif" font-size="18" font-weight="bold">${title} - ${periodLabels[period]}</text>`;
 
         for (let i = 0; i <= 10; i++) {
-            const y = padding + (chartHeight / 10) * i;
-            svg += `<line x1="${padding}" y1="${y}" x2="${width - padding}" y2="${y}" stroke="${gridColor}" stroke-width="1" opacity="0.3"/>`;
+            const y = topPadding + (chartHeight / 10) * i;
+            svg += `<line x1="${leftPadding}" y1="${y}" x2="${width - rightPadding}" y2="${y}" stroke="${gridColor}" stroke-width="1" opacity="0.3"/>`;
         }
 
-        svg += `<line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height - padding}" stroke="${textColor}" stroke-width="2"/>`;
-        svg += `<line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="${textColor}" stroke-width="2"/>`;
+        svg += `<line x1="${leftPadding}" y1="${topPadding}" x2="${leftPadding}" y2="${height - bottomPadding}" stroke="${textColor}" stroke-width="2"/>`;
+        svg += `<line x1="${leftPadding}" y1="${height - bottomPadding}" x2="${width - rightPadding}" y2="${height - bottomPadding}" stroke="${textColor}" stroke-width="2"/>`;
 
-        const onY = padding + chartHeight * 0.1;
-        const offY = padding + chartHeight * 0.9;
+        const onY = topPadding + chartHeight * 0.1;
+        const offY = topPadding + chartHeight * 0.9;
 
-        svg += `<text x="${padding - 10}" y="${onY + 5}" text-anchor="end" fill="${onColor}" font-family="sans-serif" font-size="12">ON</text>`;
-        svg += `<text x="${padding - 10}" y="${offY + 5}" text-anchor="end" fill="${offColor}" font-family="sans-serif" font-size="12">OFF</text>`;
+        const onLabelY = lang === 'uk' ? 'Є світло' : 'ON';
+        const offLabelY = lang === 'uk' ? 'Нема світла' : 'OFF';
+        svg += `<text x="${leftPadding - 10}" y="${onY + 5}" text-anchor="end" fill="${onColor}" font-family="sans-serif" font-size="12">${onLabelY}</text>`;
+        svg += `<text x="${leftPadding - 10}" y="${offY + 5}" text-anchor="end" fill="${offColor}" font-family="sans-serif" font-size="12">${offLabelY}</text>`;
 
         let path = '';
         let lastY = 0;
 
         for (let i = 0; i < points.length; i++) {
-            const x = padding + i * xStep;
+            const x = leftPadding + i * xStep;
             const y = points[i].hasElectricity ? onY : offY;
             const color = points[i].hasElectricity ? onColor : offColor;
 
@@ -70,14 +79,14 @@ export class ChartGenerator {
         }
 
         if (points.length > 1) {
-            const lastX = padding + (points.length - 1) * xStep;
+            const lastX = leftPadding + (points.length - 1) * xStep;
             path += ` L ${lastX} ${lastY}`;
         }
 
         svg += `<path d="${path}" fill="none" stroke="${onColor}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
 
         for (let i = 0; i < points.length; i++) {
-            const x = padding + i * xStep;
+            const x = leftPadding + i * xStep;
             const y = points[i].hasElectricity ? onY : offY;
             const color = points[i].hasElectricity ? onColor : offColor;
             svg += `<circle cx="${x}" cy="${y}" r="4" fill="${color}"/>`;
@@ -87,7 +96,7 @@ export class ChartGenerator {
         const labels: Array<{x: number, label: string}> = [];
         
         for (let i = 0; i < points.length; i += labelStep) {
-            const x = padding + i * xStep;
+            const x = leftPadding + i * xStep;
             const date = new Date(points[i].timestamp);
             let label = '';
             
@@ -108,7 +117,7 @@ export class ChartGenerator {
         }
         
         for (const { x, label } of labels) {
-            svg += `<text x="${x}" y="${height - padding + 20}" text-anchor="middle" fill="${textColor}" font-family="sans-serif" font-size="10" transform="rotate(-45 ${x} ${height - padding + 20})">${label}</text>`;
+            svg += `<text x="${x}" y="${height - bottomPadding + 20}" text-anchor="middle" fill="${textColor}" font-family="sans-serif" font-size="10" transform="rotate(-45 ${x} ${height - bottomPadding + 20})">${label}</text>`;
         }
 
         const onCount = historyPoints.filter(p => p.hasElectricity).length;
@@ -116,19 +125,21 @@ export class ChartGenerator {
         const onPercent = ((onCount / historyPoints.length) * 100).toFixed(1);
         const offPercent = ((offCount / historyPoints.length) * 100).toFixed(1);
 
-        svg += `<text x="${width - padding}" y="${padding + 20}" text-anchor="end" fill="${textColor}" font-family="sans-serif" font-size="12">ON: ${onPercent}%</text>`;
-        svg += `<text x="${width - padding}" y="${padding + 35}" text-anchor="end" fill="${textColor}" font-family="sans-serif" font-size="12">OFF: ${offPercent}%</text>`;
+        const onLabelStats = lang === 'uk' ? 'Є світло' : 'ON';
+        const offLabelStats = lang === 'uk' ? 'Нема світла' : 'OFF';
+        svg += `<text x="${width - rightPadding}" y="${topPadding - 10}" text-anchor="end" fill="${textColor}" font-family="sans-serif" font-size="12">${onLabelStats}: ${onPercent}%</text>`;
+        svg += `<text x="${width - rightPadding}" y="${topPadding + 5}" text-anchor="end" fill="${textColor}" font-family="sans-serif" font-size="12">${offLabelStats}: ${offPercent}%</text>`;
 
         svg += `</svg>`;
         return svg;
     }
 
-    async generateChart(historyPoints: HistoryPoint[], period: 'day' | 'week' | 'month'): Promise<Buffer> {
+    async generateChart(historyPoints: HistoryPoint[], period: 'day' | 'week' | 'month', lang: Language = 'en'): Promise<Buffer> {
         if (historyPoints.length === 0) {
             throw new Error('No history data available');
         }
 
-        const svg = this.generateSVG(historyPoints, period);
+        const svg = this.generateSVG(historyPoints, period, lang);
         const resvg = new Resvg(svg, {
             background: '#1a1a1a',
             fitTo: {
@@ -146,7 +157,7 @@ export class ChartGenerator {
         return Buffer.from(pngBuffer);
     }
 
-    async generateTimelineChart(historyPoints: HistoryPoint[], hours: number): Promise<Buffer> {
+    async generateTimelineChart(historyPoints: HistoryPoint[], hours: number, lang: Language = 'en'): Promise<Buffer> {
         const now = new Date();
         const startTime = new Date(now.getTime() - (hours * 60 * 60 * 1000));
         
@@ -166,6 +177,6 @@ export class ChartGenerator {
             period = 'week';
         }
 
-        return this.generateChart(filteredPoints, period);
+        return this.generateChart(filteredPoints, period, lang);
     }
 }
