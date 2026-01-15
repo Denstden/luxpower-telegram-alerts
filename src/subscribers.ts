@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { logger } from './logger';
 
 const SUBSCRIBERS_FILE = path.join(process.cwd(), 'subscribers.json');
 
@@ -20,7 +21,7 @@ export class SubscribersManager {
         }
       }
     } catch (error: any) {
-      console.error('Error loading subscribers:', error.message);
+      logger.error(`Error loading subscribers: ${error.message}`);
     }
   }
 
@@ -29,7 +30,7 @@ export class SubscribersManager {
       const chatIds = Array.from(this.subscribers);
       fs.writeFileSync(SUBSCRIBERS_FILE, JSON.stringify(chatIds, null, 2));
     } catch (error: any) {
-      console.error('Error saving subscribers:', error.message);
+      logger.error(`Error saving subscribers: ${error.message}`);
     }
   }
 

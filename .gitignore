@@ -5,6 +5,7 @@ dist/
 .DS_Store
 subscribers.json
 status.json
+history-cache/
 
 .idea/
 *.iml

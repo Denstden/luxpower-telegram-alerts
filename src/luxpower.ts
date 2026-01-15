@@ -1,4 +1,6 @@
 import axios, {AxiosInstance, AxiosResponse} from 'axios';
+import { HistoryCache } from './history-cache';
+import { logger } from './logger';
 
 interface RuntimeData {
     success: boolean;
@@ -39,11 +41,13 @@ export class LuxpowerClient {
     private apiEndpoint: string;
     private httpClient: AxiosInstance;
     private jsessionId: string | null = null;
+    private historyCache: HistoryCache | null;
 
-    constructor(username: string, password: string, apiEndpoint?: string) {
+    constructor(username: string, password: string, apiEndpoint?: string, enableCache: boolean = true) {
         this.username = username;
         this.password = password;
         this.apiEndpoint = apiEndpoint || 'https://eu.luxpowertek.com';
+        this.historyCache = enableCache ? new HistoryCache() : null;
 
         this.httpClient = axios.create({
             baseURL: this.apiEndpoint,
@@ -77,17 +81,17 @@ export class LuxpowerClient {
                     if (match) {
                         this.jsessionId = match[1];
                         if (this.jsessionId) {
-                            console.log('Successfully logged in 1');
+                            logger.info('Successfully logged in');
                             return true;
                         }
                     }
                 }
             }
         } catch (error: any) {
-            console.warn('Error logging in', error);
+            logger.warn(`Error logging in: ${error.message}`);
         }
 
-        console.error('Login failed. Please check your credentials.');
+        logger.error('Login failed. Please check your credentials.');
         return false;
     }
 
@@ -117,7 +121,7 @@ export class LuxpowerClient {
             return response.data;
         } catch (error: any) {
             if (error.response?.status === 401 || error.response?.status === 403) {
-                console.warn(`Error getting inverter info`, error)
+                logger.warn(`Error getting inverter info: ${error.message}`);
                 this.jsessionId = null;
                 const loggedIn = await this.login();
                 if (!loggedIn) {
@@ -162,8 +166,145 @@ export class LuxpowerClient {
                 rawData: data
             };
         } catch (error: any) {
-            console.error('Error checking electricity status:', error.message);
+            logger.error(`Error checking electricity status: ${error.message}`);
             throw error;
         }
+    }
+
+    async getHistoryData(serialNum: string, startDate: Date, endDate: Date): Promise<Array<{timestamp: string, hasElectricity: boolean}>> {
+        if (!this.jsessionId) {
+            const loggedIn = await this.login();
+            if (!loggedIn) {
+                throw new Error('Failed to login to Luxpower API');
+            }
+        }
+
+        const historyPoints: Array<{timestamp: string, hasElectricity: boolean}> = [];
+        const maxRowsPerPage = 10000;
+        const parallelDays = 10;
+        
+        const datesToFetch: string[] = [];
+        const currentDate = new Date(startDate);
+        while (currentDate <= endDate) {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            datesToFetch.push(dateStr);
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
+        const fetchDayData = async (formattedDate: string): Promise<Array<{timestamp: string, hasElectricity: boolean}>> => {
+            try {
+                if (this.historyCache) {
+                    const cachedData = this.historyCache.getCachedData(formattedDate, 1);
+                    if (cachedData && cachedData.length > 0) {
+                        return cachedData;
+                    }
+                }
+                
+                let page = 1;
+                let hasMoreData = true;
+                const dayPoints: Array<{timestamp: string, hasElectricity: boolean}> = [];
+                
+                while (hasMoreData) {
+                    const response: AxiosResponse<any> = await this.httpClient.post(
+                        `/WManage/web/analyze/data/${formattedDate}?serialNum=${serialNum}`,
+                        `page=${page}&rows=${maxRowsPerPage}`,
+                        {
+                            headers: {
+                                'Cookie': `JSESSIONID=${this.jsessionId}`,
+                                'Referer': `${this.apiEndpoint}/WManage/web/analyze/data`
+                            }
+                        }
+                    );
+
+                    if (response.data?.rows && Array.isArray(response.data.rows)) {
+                        const rowsCount = response.data.rows.length;
+                        const totalRows = response.data.total || 0;
+                        
+                        if (rowsCount === 0) {
+                            hasMoreData = false;
+                            break;
+                        }
+                        
+                        for (const point of response.data.rows) {
+                            const vacr = parseFloat(point.vacr) || 0;
+                            const vact = parseFloat(point.vact) || 0;
+                            const gridVoltage = vacr > 0 ? (vacr / 10) : (vact > 0 ? (vact / 10) : 0);
+                            const fac = parseFloat(point.fac) || 0;
+                            const gridFrequency = fac / 100;
+                            const statusText = point.statusText || '';
+                            const pToGrid = parseFloat(point.pToGrid) || 0;
+                            const pToUser = parseFloat(point.pToUser) || 0;
+                            const pinv = parseFloat(point.pinv) || 0;
+                            const peps = parseFloat(point.peps) || 0;
+                            
+                            const hasElectricity = vacr > 0;
+                            
+                            let timestamp = point.time || new Date().toISOString();
+                            if (typeof timestamp === 'string' && !timestamp.includes('T')) {
+                                timestamp = `${timestamp.replace(' ', 'T')}.000Z`;
+                            }
+                            
+                            const pointDate = new Date(timestamp);
+                            const pointData = {
+                                timestamp: pointDate.toISOString(),
+                                hasElectricity
+                            };
+                            
+                            dayPoints.push(pointData);
+                        }
+                        
+                        if (rowsCount < maxRowsPerPage) {
+                            hasMoreData = false;
+                        } else if (totalRows > 0 && (page * maxRowsPerPage >= totalRows)) {
+                            hasMoreData = false;
+                        } else {
+                            page++;
+                        }
+                    } else {
+                        hasMoreData = false;
+                    }
+                }
+                
+                if (dayPoints.length > 0 && this.historyCache) {
+                    this.historyCache.saveCachedData(formattedDate, dayPoints);
+                }
+                
+                return dayPoints;
+            } catch (error: any) {
+                if (error.response?.status === 401 || error.response?.status === 403) {
+                    logger.warn(`Error getting history data for ${formattedDate}: ${error.message}`);
+                    this.jsessionId = null;
+                    const loggedIn = await this.login();
+                    if (!loggedIn) {
+                        throw new Error('Failed to re-login to Luxpower API');
+                    }
+                    return fetchDayData(formattedDate);
+                }
+                
+                if (error.response?.status === 404 || error.response?.status === 400) {
+                    return [];
+                }
+                
+                logger.warn(`Error fetching data for ${formattedDate}: ${error.message}`);
+                return [];
+            }
+        };
+        
+        for (let i = 0; i < datesToFetch.length; i += parallelDays) {
+            const batch = datesToFetch.slice(i, i + parallelDays);
+            
+            const results = await Promise.all(batch.map(date => fetchDayData(date)));
+            
+            for (const dayData of results) {
+                for (const point of dayData) {
+                    const pointDate = new Date(point.timestamp);
+                    if (pointDate >= startDate && pointDate <= endDate) {
+                        historyPoints.push(point);
+                    }
+                }
+            }
+        }
+        
+        return historyPoints.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     }
 }

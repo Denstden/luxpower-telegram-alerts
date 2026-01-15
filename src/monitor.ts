@@ -2,6 +2,7 @@ import * as dotenv from 'dotenv';
 import { LuxpowerClient } from './luxpower';
 import { TelegramBot } from './telegram';
 import { StatusPersistence } from './status-persistence';
+import { logger } from './logger';
 
 dotenv.config();
 
@@ -12,23 +13,24 @@ const LUXPOWER_PLANT_ID = process.env.LUXPOWER_PLANT_ID || process.env.LUXPOWER_
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || '30000', 10);
 const COMMAND_POLL_INTERVAL = parseInt(process.env.COMMAND_POLL_INTERVAL || '1000', 10);
+const ENABLE_HISTORY_CACHE = process.env.ENABLE_HISTORY_CACHE !== 'false';
 
 if (!LUXPOWER_USERNAME || !LUXPOWER_PASSWORD) {
-  console.error('Error: LUXPOWER_USERNAME and LUXPOWER_PASSWORD must be set in .env file');
+  logger.error('LUXPOWER_USERNAME and LUXPOWER_PASSWORD must be set in .env file');
   process.exit(1);
 }
 
 if (!LUXPOWER_PLANT_ID) {
-  console.error('Error: LUXPOWER_PLANT_ID (or LUXPOWER_SERIAL_NUM) must be set in .env file');
+  logger.error('LUXPOWER_PLANT_ID (or LUXPOWER_SERIAL_NUM) must be set in .env file');
   process.exit(1);
 }
 
 if (!TELEGRAM_BOT_TOKEN) {
-  console.error('Error: TELEGRAM_BOT_TOKEN must be set in .env file');
+  logger.error('TELEGRAM_BOT_TOKEN must be set in .env file');
   process.exit(1);
 }
 
-const luxpower = new LuxpowerClient(LUXPOWER_USERNAME!, LUXPOWER_PASSWORD!, LUXPOWER_API_ENDPOINT);
+const luxpower = new LuxpowerClient(LUXPOWER_USERNAME!, LUXPOWER_PASSWORD!, LUXPOWER_API_ENDPOINT, ENABLE_HISTORY_CACHE);
 const telegram = new TelegramBot(TELEGRAM_BOT_TOKEN!);
 const statusPersistence = new StatusPersistence();
 
@@ -63,13 +65,13 @@ async function checkStatus(): Promise<void> {
       const persistedChangeTime = statusPersistence.getStatusChangeTime();
       
       if (persistedStatus !== null && persistedChangeTime) {
-        console.log(
+        logger.info(
           `Restored status: Electricity ${persistedStatus ? 'ON' : 'OFF'} (Grid Power: ${status.gridPower.toFixed(2)} W)`
         );
-        console.log(`Last status change: ${persistedChangeTime.toLocaleString()}`);
+        logger.info(`Last status change: ${persistedChangeTime.toLocaleString()}`);
         
         if (persistedStatus !== status.hasElectricity) {
-          console.log(`Status changed since last run. Updating...`);
+          logger.info(`Status changed since last run. Updating...`);
           const now = new Date();
           const duration = Math.floor((now.getTime() - persistedChangeTime.getTime()) / 1000);
           
@@ -86,7 +88,7 @@ async function checkStatus(): Promise<void> {
         previousStatus = status.hasElectricity;
         const now = new Date();
         statusPersistence.updateStatus(status.hasElectricity, now, 0, 0);
-        console.log(
+        logger.info(
           `Initial status: Electricity ${status.hasElectricity ? 'ON' : 'OFF'} (Grid Power: ${status.gridPower.toFixed(2)} W)`
         );
       }
@@ -100,29 +102,26 @@ async function checkStatus(): Promise<void> {
       
       if (status.hasElectricity) {
         statusPersistence.updateStatus(true, now, 0, duration);
-        console.log(`Electricity appeared! Sending notification to ${telegram.getSubscriberCount()} subscriber(s)...`);
+        logger.info(`Electricity appeared! Sending notification to ${telegram.getSubscriberCount()} subscriber(s)...`);
         await telegram.notifyElectricityAppeared(status.gridPower, duration);
       } else {
         statusPersistence.updateStatus(false, now, duration, 0);
-        console.log(`Electricity disappeared! Sending notification to ${telegram.getSubscriberCount()} subscriber(s)...`);
+        logger.info(`Electricity disappeared! Sending notification to ${telegram.getSubscriberCount()} subscriber(s)...`);
         await telegram.notifyElectricityDisappeared(duration);
       }
       previousStatus = status.hasElectricity;
-    } else {
-      console.log(
-        `Status unchanged: Electricity ${status.hasElectricity ? 'ON' : 'OFF'} (Grid Power: ${status.gridPower.toFixed(2)} W)`
-      );
     }
   } catch (error: any) {
-    console.error('Error in checkStatus:', error.message);
+    logger.error(`Error in checkStatus: ${error.message}`);
   }
 }
 
 async function startMonitoring(): Promise<void> {
-  console.log('Starting electricity monitoring service...');
-  console.log(`Polling interval: ${POLL_INTERVAL / 1000} seconds`);
-  console.log(`Plant ID: ${LUXPOWER_PLANT_ID}`);
-  console.log(`Subscribers: ${telegram.getSubscriberCount()}`);
+  logger.info('Starting electricity monitoring service...');
+  logger.info(`Polling interval: ${POLL_INTERVAL / 1000} seconds`);
+  logger.info(`Plant ID: ${LUXPOWER_PLANT_ID}`);
+  logger.info(`Subscribers: ${telegram.getSubscriberCount()}`);
+  logger.info(`History cache: ${ENABLE_HISTORY_CACHE ? 'enabled' : 'disabled'}`);
 
   await telegram.startCommandPolling(COMMAND_POLL_INTERVAL);
 
@@ -137,14 +136,14 @@ async function startMonitoring(): Promise<void> {
   }, POLL_INTERVAL);
 
   process.on('SIGINT', () => {
-    console.log('\nShutting down monitoring service...');
+    logger.info('Shutting down monitoring service...');
     isRunning = false;
     clearInterval(intervalId);
     process.exit(0);
   });
 
   process.on('SIGTERM', () => {
-    console.log('\nShutting down monitoring service...');
+    logger.info('Shutting down monitoring service...');
     isRunning = false;
     clearInterval(intervalId);
     process.exit(0);
@@ -152,7 +151,7 @@ async function startMonitoring(): Promise<void> {
 }
 
 startMonitoring().catch((error) => {
-  console.error('Fatal error:', error);
+  logger.error(`Fatal error: ${error}`);
   process.exit(1);
 });
 
