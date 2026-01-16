@@ -49,6 +49,55 @@ export class HistoryCache {
         return null;
     }
 
+    isCacheComplete(date: string): boolean {
+        try {
+            const filePath = this.getCacheFilePath(date);
+            if (!fs.existsSync(filePath)) {
+                return false;
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+            const isToday = date === today;
+            
+            if (isToday) {
+                return true;
+            }
+
+            const content = fs.readFileSync(filePath, 'utf-8');
+            const cachedData = JSON.parse(content);
+            if (!Array.isArray(cachedData) || cachedData.length === 0) {
+                return false;
+            }
+
+            const dateObj = new Date(date);
+            const dayStart = new Date(dateObj);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(dateObj);
+            dayEnd.setHours(23, 59, 59, 999);
+
+            const dayStartTime = dayStart.getTime();
+            const dayEndTime = dayEnd.getTime();
+
+            let hasLateData = false;
+            for (const point of cachedData) {
+                const pointTime = new Date(point.timestamp).getTime();
+                if (pointTime >= dayStartTime && pointTime <= dayEndTime) {
+                    const pointDate = new Date(point.timestamp);
+                    const hour = pointDate.getHours();
+                    if (hour >= 23) {
+                        hasLateData = true;
+                        break;
+                    }
+                }
+            }
+
+            return hasLateData;
+        } catch (error: any) {
+            logger.warn(`Error checking cache completeness for ${date}: ${error.message}`);
+            return false;
+        }
+    }
+
     saveCachedData(date: string, data: HistoryPoint[]): void {
         try {
             const filePath = this.getCacheFilePath(date);
