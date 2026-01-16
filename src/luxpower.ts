@@ -196,8 +196,13 @@ export class LuxpowerClient {
                 if (this.historyCache) {
                     const cachedData = this.historyCache.getCachedData(formattedDate, 1);
                     if (cachedData && cachedData.length > 0) {
-                        return cachedData;
-                    }
+                        const isComplete = this.historyCache.isCacheComplete(formattedDate);
+                        if (isComplete) {
+                            return cachedData;
+                        } else {
+                            logger.info(`Cache for ${formattedDate} is incomplete (missing 11 PM+ data), re-fetching...`);
+                        }
+                }
                 }
                 
                 let page = 1;
@@ -240,11 +245,21 @@ export class LuxpowerClient {
                             const hasElectricity = vacr > 0;
                             
                             let timestamp = point.time || new Date().toISOString();
-                            if (typeof timestamp === 'string' && !timestamp.includes('T')) {
-                                timestamp = `${timestamp.replace(' ', 'T')}.000Z`;
+                            let pointDate: Date;
+                            
+                            if (typeof timestamp === 'string') {
+                                if (timestamp.includes('T') && timestamp.endsWith('Z')) {
+                                    pointDate = new Date(timestamp);
+                                } else if (timestamp.includes('T')) {
+                                    pointDate = new Date(timestamp);
+                                } else {
+                                    const localTimestamp = timestamp.replace(' ', 'T');
+                                    pointDate = new Date(localTimestamp);
+                                }
+                            } else {
+                                pointDate = new Date(timestamp);
                             }
                             
-                            const pointDate = new Date(timestamp);
                             const pointData = {
                                 timestamp: pointDate.toISOString(),
                                 hasElectricity
