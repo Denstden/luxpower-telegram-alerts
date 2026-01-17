@@ -1,6 +1,6 @@
 {
   "name": "luxpower-telegram-alerts",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "scripts": {
     "build": "tsc",
@@ -8,10 +8,11 @@
     "dev": "tsx src/monitor.ts"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.5.0",
     "axios": "^1.6.0",
     "dotenv": "^16.3.1",
-    "@resvg/resvg-js": "^2.5.0",
-    "form-data": "^4.0.5"
+    "form-data": "^4.0.5",
+    "typesafe-i18n": "^5.26.2"
   },
   "devDependencies": {
     "@types/node": "^22.19.7",
