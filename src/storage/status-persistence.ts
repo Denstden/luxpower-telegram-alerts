@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from './logger';
-import { ensureJsonFileExists } from './file-utils';
+import { logger, ensureJsonFileExists } from '../utils';
 
 const STATUS_FILE = path.join(process.cwd(), 'status.json');
 
@@ -118,4 +117,3 @@ export class StatusPersistence {
     return { ...this.data };
   }
 }
-

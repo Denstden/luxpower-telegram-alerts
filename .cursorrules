@@ -15,30 +15,80 @@ This project is a simple TypeScript service for monitoring electricity status vi
 - No comments in code (per project rules)
 - Keep dependencies minimal
 
-## Key Files
+## Package Structure
 
+The codebase is organized into logical packages:
+
+### Core Entry Point
 - `src/monitor.ts` - Main service entry point
-- `src/luxpower.ts` - Luxpower API client (simplified, no complex auth)
-- `src/telegram.ts` - Telegram bot with subscriber management and group support
-- `src/subscribers.ts` - Subscriber persistence
-- `src/user-preferences.ts` - User language preferences
-- `src/history-cache.ts` - Historical data caching
-- `src/chart-generator.ts` - SVG chart generation
+
+### Packages
+
+#### `src/utils/` - Utilities
+- `logger.ts` - Logging utility
+- `translations.ts` - i18n translations (Ukrainian/English)
+- `file-utils.ts` - File system utilities
+- `index.ts` - Package exports
+
+#### `src/storage/` - Persistence Layer
+- `subscribers.ts` - Subscriber management (SubscribersManager)
+- `user-preferences.ts` - User language preferences (UserPreferencesManager)
+- `status-persistence.ts` - Electricity status tracking (StatusPersistence)
+- `history-cache.ts` - Historical data caching (HistoryCache)
+- `index.ts` - Package exports
+
+#### `src/luxpower/` - Luxpower API Client
+- `client.ts` - API client with authentication (LuxpowerClient)
+- `data-processor.ts` - Data processing logic (LuxpowerDataProcessor)
+- `types.ts` - Type definitions (RuntimeData, ElectricityStatus, HistoryPoint)
+- `index.ts` - Package exports
+
+#### `src/telegram/` - Telegram Bot
+- `bot.ts` - Core bot class (TelegramBot) - handles API communication and polling
+- `notifications.ts` - Notification service (NotificationService)
+- `commands/handlers.ts` - Command handlers (CommandHandlers)
+- `messages/formatters.ts` - Message formatting (MessageFormatter)
+- `messages/keyboards.ts` - Keyboard builders (KeyboardBuilder)
+- `index.ts` - Package exports
+
+#### `src/charts/` - Chart Generation
+- `chart-generator.ts` - SVG chart generation (ChartGenerator)
+- `index.ts` - Package exports
+
+## Import Guidelines
+
+- Use package index files for imports (e.g., `from '../utils'` instead of `from '../utils/logger'`)
+- All packages export through their `index.ts` files
+- This keeps imports clean and maintainable
 
 ## Important Notes
 
-- Authentication is handled automatically by axios with cookies
-- No manual session management needed
-- Subscribers stored in `subscribers.json` (gitignored)
-- Environment variables in `.env` (gitignored)
+- **Authentication**: Handled automatically by axios with cookies, no manual session management needed
+- **Storage**: Subscribers stored in `subscribers.json`, preferences in `user-preferences.json`, status in `status.json` (all gitignored)
+- **Environment variables**: Stored in `.env` (gitignored)
 - **Group support**: Bot works differently in groups (read-only, notifications only) vs private chats (full functionality)
-- Groups default to Ukrainian language, private chats default to English
-- Negative chat IDs indicate groups, positive IDs indicate private chats
+- **Language defaults**: Groups default to Ukrainian language, private chats default to English
+- **Chat IDs**: Negative chat IDs indicate groups, positive IDs indicate private chats
+- **Test notifications**: Set `ENABLE_TEST_NOTIFICATIONS=true` to send test notifications after subscription
+
+## Docker & Build
+
+- **Multi-stage build**: Dockerfile uses multi-stage build (builder stage compiles TypeScript, final stage runs production)
+- **`.dockerignore`**: Excludes development files, IDE configs, data files, and source code from Docker context
+  - Source code (`src/`) is copied explicitly in Dockerfile for building
+  - Data files (`subscribers.json`, `status.json`, etc.) are excluded - created at runtime via volumes
+  - Development files (`.env`, `node_modules`, `dist`, IDE configs) excluded to keep image small
+  - Documentation files (`README.md`, `NOTICE.md`) excluded as not needed in container
+- **Fonts**: Alpine image includes `fontconfig` and `ttf-dejavu` for SVG chart rendering
+- **Production dependencies**: Final stage only installs production dependencies (`npm ci --only=production`)
 
 ## When Making Changes
 
-- Keep it simple - avoid over-engineering
-- Test with `npm run dev` before committing
-- Ensure `.gitignore` excludes sensitive files
-- Update README if adding new features
+- **Keep it simple** - avoid over-engineering
+- **Use package structure** - place files in appropriate packages (utils, storage, luxpower, telegram, charts)
+- **Use index exports** - export through package `index.ts` files for clean imports
+- **Test before committing** - use `npm run dev` to test changes
+- **Maintain separation** - keep concerns separated (API client, data processing, bot logic, etc.)
+- **Ensure `.gitignore`** - excludes sensitive files (JSON data files, .env)
+- **Update documentation** - update README if adding new features
 

@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from './logger';
+import { logger } from '../utils';
 
 const CACHE_DIR = path.join(process.cwd(), 'history-cache');
 

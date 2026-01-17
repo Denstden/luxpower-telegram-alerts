@@ -1,8 +1,8 @@
 import * as dotenv from 'dotenv';
 import { LuxpowerClient } from './luxpower';
 import { TelegramBot } from './telegram';
-import { StatusPersistence } from './status-persistence';
-import { logger } from './logger';
+import { StatusPersistence } from './storage';
+import { logger } from './utils';
 
 dotenv.config();
 
