@@ -1,39 +1,8 @@
 import axios, {AxiosInstance, AxiosResponse} from 'axios';
-import { HistoryCache } from './history-cache';
-import { logger } from './logger';
-
-interface RuntimeData {
-    success: boolean;
-    serialNum: string;
-    pToGrid: number;
-    pToUser: number;
-    vact: number;
-    fac: number;
-    status: number;
-    soc?: number;
-    vBat?: number;
-    batPower?: number;
-    vpv1?: number;
-    ppv1?: number;
-    vpv2?: number;
-    ppv2?: number;
-    vpv3?: number;
-    ppv3?: number;
-    pinv?: number;
-    peps?: number;
-    consumptionPower?: number;
-    statusText?: string;
-    deviceTime?: string;
-
-    [key: string]: any;
-}
-
-interface ElectricityStatus {
-    hasElectricity: boolean;
-    gridPower: number;
-    timestamp: string;
-    rawData: RuntimeData;
-}
+import { HistoryCache } from '../storage';
+import { logger } from '../utils';
+import { RuntimeData, ElectricityStatus, HistoryPoint } from './types';
+import { LuxpowerDataProcessor } from './data-processor';
 
 export class LuxpowerClient {
     private username: string;
@@ -42,12 +11,14 @@ export class LuxpowerClient {
     private httpClient: AxiosInstance;
     private jsessionId: string | null = null;
     private historyCache: HistoryCache | null;
+    private dataProcessor: LuxpowerDataProcessor;
 
     constructor(username: string, password: string, apiEndpoint?: string, enableCache: boolean = true) {
         this.username = username;
         this.password = password;
         this.apiEndpoint = apiEndpoint || 'https://eu.luxpowertek.com';
         this.historyCache = enableCache ? new HistoryCache() : null;
+        this.dataProcessor = new LuxpowerDataProcessor();
 
         this.httpClient = axios.create({
             baseURL: this.apiEndpoint,
@@ -136,42 +107,14 @@ export class LuxpowerClient {
     async checkElectricityStatus(serialNum: string): Promise<ElectricityStatus> {
         try {
             const data = await this.getInverterRuntime(serialNum);
-
-            const vacr = data.vacr || 0;
-            const vact = data.vact || 0;
-
-            const gridVoltage = vacr > 0 ? (vacr / 10).toFixed(1) : (vact > 0 ? (vact / 10).toFixed(1) : '0.0');
-            const gridVoltageNum = parseFloat(gridVoltage);
-            const gridFrequency = data.fac ? data.fac / 100 : 0;
-            const powerToGrid = data.pToGrid || 0;
-            const powerToUser = data.pToUser || 0;
-
-            const hasElectricity = gridVoltageNum > 180 && gridFrequency > 45 && gridFrequency < 55;
-
-            let gridPower = 0;
-            if (powerToGrid > 0) {
-                gridPower = powerToGrid;
-            } else if (powerToUser > 0) {
-                gridPower = -powerToUser;
-            } else if (powerToGrid < 0) {
-                gridPower = powerToGrid;
-            } else if (powerToUser < 0) {
-                gridPower = -powerToUser;
-            }
-
-            return {
-                hasElectricity,
-                gridPower,
-                timestamp: new Date().toISOString(),
-                rawData: data
-            };
+            return this.dataProcessor.processRuntimeData(data);
         } catch (error: any) {
             logger.error(`Error checking electricity status: ${error.message}`);
             throw error;
         }
     }
 
-    async getHistoryData(serialNum: string, startDate: Date, endDate: Date): Promise<Array<{timestamp: string, hasElectricity: boolean}>> {
+    async getHistoryData(serialNum: string, startDate: Date, endDate: Date): Promise<HistoryPoint[]> {
         if (!this.jsessionId) {
             const loggedIn = await this.login();
             if (!loggedIn) {
@@ -179,7 +122,7 @@ export class LuxpowerClient {
             }
         }
 
-        const historyPoints: Array<{timestamp: string, hasElectricity: boolean}> = [];
+        const historyPoints: HistoryPoint[] = [];
         const maxRowsPerPage = 10000;
         const parallelDays = 10;
         
@@ -191,7 +134,7 @@ export class LuxpowerClient {
             currentDate.setDate(currentDate.getDate() + 1);
         }
         
-        const fetchDayData = async (formattedDate: string): Promise<Array<{timestamp: string, hasElectricity: boolean}>> => {
+        const fetchDayData = async (formattedDate: string): Promise<HistoryPoint[]> => {
             try {
                 if (this.historyCache) {
                     const cachedData = this.historyCache.getCachedData(formattedDate, 1);
@@ -207,7 +150,7 @@ export class LuxpowerClient {
                 
                 let page = 1;
                 let hasMoreData = true;
-                const dayPoints: Array<{timestamp: string, hasElectricity: boolean}> = [];
+                const dayPoints: HistoryPoint[] = [];
                 
                 while (hasMoreData) {
                     const response: AxiosResponse<any> = await this.httpClient.post(
@@ -231,41 +174,10 @@ export class LuxpowerClient {
                         }
                         
                         for (const point of response.data.rows) {
-                            const vacr = parseFloat(point.vacr) || 0;
-                            const vact = parseFloat(point.vact) || 0;
-                            const gridVoltage = vacr > 0 ? (vacr / 10) : (vact > 0 ? (vact / 10) : 0);
-                            const fac = parseFloat(point.fac) || 0;
-                            const gridFrequency = fac / 100;
-                            const statusText = point.statusText || '';
-                            const pToGrid = parseFloat(point.pToGrid) || 0;
-                            const pToUser = parseFloat(point.pToUser) || 0;
-                            const pinv = parseFloat(point.pinv) || 0;
-                            const peps = parseFloat(point.peps) || 0;
-                            
-                            const hasElectricity = vacr > 0;
-                            
-                            let timestamp = point.time || new Date().toISOString();
-                            let pointDate: Date;
-                            
-                            if (typeof timestamp === 'string') {
-                                if (timestamp.includes('T') && timestamp.endsWith('Z')) {
-                                    pointDate = new Date(timestamp);
-                                } else if (timestamp.includes('T')) {
-                                    pointDate = new Date(timestamp);
-                                } else {
-                                    const localTimestamp = timestamp.replace(' ', 'T');
-                                    pointDate = new Date(localTimestamp);
-                                }
-                            } else {
-                                pointDate = new Date(timestamp);
+                            const processedPoint = this.dataProcessor.processHistoryPoint(point);
+                            if (processedPoint) {
+                                dayPoints.push(processedPoint);
                             }
-                            
-                            const pointData = {
-                                timestamp: pointDate.toISOString(),
-                                hasElectricity
-                            };
-                            
-                            dayPoints.push(pointData);
                         }
                         
                         if (rowsCount < maxRowsPerPage) {

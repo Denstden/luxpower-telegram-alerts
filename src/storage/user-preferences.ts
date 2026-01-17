@@ -1,8 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from './logger';
-import { Language } from './translations';
-import { ensureJsonFileExists } from './file-utils';
+import { logger, Language, ensureJsonFileExists } from '../utils';
 
 const PREFERENCES_FILE = path.join(process.cwd(), 'user-preferences.json');
 

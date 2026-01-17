@@ -1,5 +1,5 @@
 import { Resvg } from '@resvg/resvg-js';
-import { getTranslations, Language } from './translations';
+import { getTranslations, Language } from '../utils';
 
 interface HistoryPoint {
     timestamp: string;

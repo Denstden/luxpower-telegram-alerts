@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from './logger';
-import { ensureJsonFileExists } from './file-utils';
+import { logger, ensureJsonFileExists } from '../utils';
 
 const SUBSCRIBERS_FILE = path.join(process.cwd(), 'subscribers.json');
 
@@ -83,4 +82,3 @@ export class SubscribersManager {
     return this.subscribers.size;
   }
 }
-
