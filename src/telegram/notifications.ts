@@ -1,5 +1,5 @@
 import {SubscribersManager, UserPreferencesManager} from '../storage';
-import {formatDateTime, getTranslations, Language} from '../utils';
+import {DEFAULT_GROUP_LANGUAGE, DEFAULT_PRIVATE_LANGUAGE, formatDateTime, getTranslations, Language} from '../utils';
 import {KeyboardBuilder} from './messages/keyboards';
 import {MessageFormatter} from './messages/formatters';
 
@@ -27,7 +27,7 @@ export class NotificationService {
     private getLanguage(chatId: string): Language {
         const chatIdNum = parseInt(chatId, 10);
         const isGroup = this.isGroupChat(chatIdNum);
-        return this.preferences.getLanguage(chatId, isGroup ? 'uk' : 'en');
+        return this.preferences.getLanguage(chatId, isGroup ? DEFAULT_GROUP_LANGUAGE : DEFAULT_PRIVATE_LANGUAGE);
     }
 
     async notifyElectricityAppeared(
@@ -46,10 +46,10 @@ export class NotificationService {
             let keyboard: any = undefined;
 
             if (isGroup) {
-                const offDurationText = previousOffDuration > 0 ? `\n${t.notifications.wasOffFor} ${this.formatter.formatDuration(previousOffDuration)}` : '';
+                const offDurationText = previousOffDuration > 0 ? `\n${t.notifications.wasOffFor} ${this.formatter.formatDuration(previousOffDuration, lang)}` : '';
                 message = `${t.group.electricityAppeared}${offDurationText}\n\n${t.group.readonlyMessage.split('\n\n')[1]}`;
             } else {
-                const offDurationText = previousOffDuration > 0 ? `${t.notifications.wasOffFor} ${this.formatter.formatDuration(previousOffDuration)}` : '';
+                const offDurationText = previousOffDuration > 0 ? `${t.notifications.wasOffFor} ${this.formatter.formatDuration(previousOffDuration, lang)}` : '';
                 message = `${t.notifications.electricityAppeared}\n\n${t.notifications.gridPower} ${gridPower.toFixed(2)} W${offDurationText}\n${t.notifications.time} ${formatDateTime(new Date(), lang)}\n\n${t.notifications.useInfo}`;
                 keyboard = this.keyboardBuilder.getNotificationKeyboard(lang);
             }
@@ -74,10 +74,10 @@ export class NotificationService {
             let keyboard: any = undefined;
 
             if (isGroup) {
-                const onDurationText = previousOnDuration > 0 ? `\n${t.notifications.wasOnFor} ${this.formatter.formatDuration(previousOnDuration)}` : '';
+                const onDurationText = previousOnDuration > 0 ? `\n${t.notifications.wasOnFor} ${this.formatter.formatDuration(previousOnDuration, lang)}` : '';
                 message = `${t.group.electricityDisappeared}${onDurationText}\n\n${t.group.readonlyMessage.split('\n\n')[1]}`;
             } else {
-                const onDurationText = previousOnDuration > 0 ? `${t.notifications.wasOnFor} ${this.formatter.formatDuration(previousOnDuration)}` : '';
+                const onDurationText = previousOnDuration > 0 ? `${t.notifications.wasOnFor} ${this.formatter.formatDuration(previousOnDuration, lang)}` : '';
                 message = `${t.notifications.electricityDisappeared}${onDurationText}\n\n${t.notifications.time} ${formatDateTime(new Date(), lang)}\n\n${t.notifications.useInfo}`;
                 keyboard = this.keyboardBuilder.getNotificationKeyboard(lang);
             }

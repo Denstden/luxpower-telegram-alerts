@@ -1,7 +1,13 @@
-import {getTranslations, Language} from '../../utils/translations';
+import {
+    DEFAULT_GROUP_LANGUAGE,
+    DEFAULT_LANGUAGE,
+    DEFAULT_PRIVATE_LANGUAGE,
+    getTranslations,
+    Language
+} from '../../utils';
 
 export class KeyboardBuilder {
-    getMainMenu(chatId: string, isSubscribed: boolean, lang: Language = 'en'): any {
+    getMainMenu(chatId: string, isSubscribed: boolean, lang: Language = DEFAULT_LANGUAGE): any {
         const t = getTranslations(lang);
         const subscribeButton = isSubscribed
             ? [{text: t.buttons.unsubscribe, callback_data: 'unsubscribe'}]
@@ -27,7 +33,7 @@ export class KeyboardBuilder {
         };
     }
 
-    getInverterInfoKeyboard(lang: Language = 'en'): any {
+    getInverterInfoKeyboard(lang: Language = DEFAULT_LANGUAGE): any {
         const t = getTranslations(lang);
         return {
             inline_keyboard: [
@@ -37,7 +43,7 @@ export class KeyboardBuilder {
         };
     }
 
-    getNotificationKeyboard(lang: Language = 'en'): any {
+    getNotificationKeyboard(lang: Language = DEFAULT_LANGUAGE): any {
         const t = getTranslations(lang);
         return {
             inline_keyboard: [
@@ -56,7 +62,7 @@ export class KeyboardBuilder {
         };
     }
 
-    getChartKeyboard(hours: number, lang: Language = 'en'): any {
+    getChartKeyboard(hours: number, lang: Language = DEFAULT_LANGUAGE): any {
         const t = getTranslations(lang);
         return {
             inline_keyboard: [
@@ -73,13 +79,19 @@ export class KeyboardBuilder {
         };
     }
 
-    getLanguageKeyboard(currentLang: Language, lang: Language = 'en'): any {
+    getLanguageKeyboard(currentLang: Language, lang: Language = DEFAULT_LANGUAGE): any {
         const t = getTranslations(lang);
         return {
             inline_keyboard: [
                 [
-                    {text: `🇺🇦 Українсьka${currentLang === 'uk' ? ' ✓' : ''}`, callback_data: 'lang_uk'},
-                    {text: `🇬🇧 English${currentLang === 'en' ? ' ✓' : ''}`, callback_data: 'lang_en'}
+                    {
+                        text: `🇺🇦 Українсьka${currentLang === DEFAULT_GROUP_LANGUAGE ? ' ✓' : ''}`,
+                        callback_data: `lang_${DEFAULT_GROUP_LANGUAGE}`
+                    },
+                    {
+                        text: `🇬🇧 English${currentLang === DEFAULT_PRIVATE_LANGUAGE ? ' ✓' : ''}`,
+                        callback_data: `lang_${DEFAULT_PRIVATE_LANGUAGE}`
+                    }
                 ],
                 [
                     {text: t.buttons.mainMenu, callback_data: 'menu'}

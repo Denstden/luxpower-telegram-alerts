@@ -1,7 +1,7 @@
 import axios, {AxiosResponse} from 'axios';
 import {SubscribersManager, UserPreferencesManager} from '../storage';
 import {LuxpowerClient} from '../luxpower';
-import {logger} from '../utils';
+import {Language, logger, SUPPORTED_LANGUAGES} from '../utils';
 import {CommandHandlers} from './commands/handlers';
 import {NotificationService} from './notifications';
 
@@ -190,8 +190,10 @@ export class TelegramBot {
                             } else if (data === 'language') {
                                 await this.commandHandlers.handleLanguage(chatId, (id, text, kb) => this.sendMessage(id, text, kb));
                             } else if (data?.startsWith('lang_')) {
-                                const lang = data.replace('lang_', '') as 'uk' | 'en';
-                                await this.commandHandlers.handleLanguageChange(chatId, lang, (id, text, kb) => this.sendMessage(id, text, kb));
+                                const lang = data.replace('lang_', '') as Language;
+                                if (SUPPORTED_LANGUAGES.includes(lang)) {
+                                    await this.commandHandlers.handleLanguageChange(chatId, lang, (id, text, kb) => this.sendMessage(id, text, kb));
+                                }
                             } else if (data?.startsWith('chart_')) {
                                 const hours = parseInt(data.replace('chart_', ''), 10);
                                 await this.commandHandlers.handleChart(chatId, hours, (id, text, kb) => this.sendMessage(id, text, kb));

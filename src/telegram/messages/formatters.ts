@@ -1,4 +1,4 @@
-import {formatDateTime, getTranslations, Language} from '../../utils';
+import {DEFAULT_LANGUAGE, formatDateTime, formatDurationSeconds, getTranslations, Language} from '../../utils';
 import {RuntimeData} from '../../luxpower';
 
 interface StatusTracker {
@@ -11,23 +11,11 @@ interface StatusTracker {
 }
 
 export class MessageFormatter {
-    formatDuration(seconds: number): string {
-        const days = Math.floor(seconds / 86400);
-        const hours = Math.floor((seconds % 86400) / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = seconds % 60;
-
-        const parts: string[] = [];
-        if (days > 0) parts.push(`${days}d`);
-        if (hours > 0) parts.push(`${hours}h`);
-        if (minutes > 0) parts.push(`${minutes}m`);
-        if (secs > 0 && parts.length === 0) parts.push(`${secs}s`);
-        if (secs > 0 && parts.length > 0 && parts.length < 3) parts.push(`${secs}s`);
-
-        return parts.length > 0 ? parts.join(' ') : '0s';
+    formatDuration(seconds: number, lang: Language): string {
+        return formatDurationSeconds(seconds, lang);
     }
 
-    formatInverterInfo(data: RuntimeData, stats: StatusTracker | null, lang: Language = 'en'): string {
+    formatInverterInfo(data: RuntimeData, stats: StatusTracker | null, lang: Language = DEFAULT_LANGUAGE): string {
         const t = getTranslations(lang);
         const vact = data.vact || 0;
         const vacr = data.vacr || 0;
@@ -75,7 +63,7 @@ export class MessageFormatter {
         message += `${t.inverter.systemStatus} ${statusText}\n`;
 
         if (stats && stats.currentDuration > 0) {
-            message += `${t.inverter.currentState} ${this.formatDuration(stats.currentDuration)}\n`;
+            message += `${t.inverter.currentState} ${this.formatDuration(stats.currentDuration, lang)}\n`;
         }
         message += `\n`;
 
@@ -115,7 +103,7 @@ export class MessageFormatter {
         return message;
     }
 
-    formatStatusInfo(stats: StatusTracker | null, lang: Language = 'en'): string {
+    formatStatusInfo(stats: StatusTracker | null, lang: Language = DEFAULT_LANGUAGE): string {
         const t = getTranslations(lang);
         let statusInfo = '';
 
@@ -125,11 +113,11 @@ export class MessageFormatter {
             statusInfo += `${t.status.title}\n`;
 
             if (stats.statusChangeTime && stats.currentDuration >= 0) {
-                const durationFormatted = this.formatDuration(stats.currentDuration);
+                const durationFormatted = this.formatDuration(stats.currentDuration, lang);
                 statusInfo += `${t.status.current} ${statusText} (${durationFormatted})\n`;
                 statusInfo += `${t.status.since} ${formatDateTime(stats.statusChangeTime, lang)}\n`;
             } else if (stats.statusChangeTime) {
-                const durationFormatted = this.formatDuration(Math.abs(stats.currentDuration));
+                const durationFormatted = this.formatDuration(Math.abs(stats.currentDuration), lang);
                 statusInfo += `${t.status.current} ${statusText} (${durationFormatted})\n`;
                 statusInfo += `${t.status.since} ${formatDateTime(stats.statusChangeTime, lang)}\n`;
             } else {
@@ -138,9 +126,9 @@ export class MessageFormatter {
 
             if (stats.sessionDuration > 0) {
                 statusInfo += `\n${t.status.sessionStats}\n`;
-                statusInfo += `${t.status.totalOnTime} ${this.formatDuration(stats.totalOnTime)}\n`;
-                statusInfo += `${t.status.totalOffTime} ${this.formatDuration(stats.totalOffTime)}\n`;
-                statusInfo += `${t.status.sessionDuration} ${this.formatDuration(stats.sessionDuration)}`;
+                statusInfo += `${t.status.totalOnTime} ${this.formatDuration(stats.totalOnTime, lang)}\n`;
+                statusInfo += `${t.status.totalOffTime} ${this.formatDuration(stats.totalOffTime, lang)}\n`;
+                statusInfo += `${t.status.sessionDuration} ${this.formatDuration(stats.sessionDuration, lang)}`;
             }
         } else {
             statusInfo = `${t.status.title}\n\n${t.status.notAvailable}`;
@@ -149,7 +137,7 @@ export class MessageFormatter {
         return statusInfo;
     }
 
-    formatHelp(version: string, lang: Language = 'en'): string {
+    formatHelp(version: string, lang: Language = DEFAULT_LANGUAGE): string {
         const t = getTranslations(lang);
         return `${t.help.title}\n\n` +
             `${t.help.mainCommands}\n` +

@@ -46,7 +46,7 @@ export class UserPreferencesManager {
         }
     }
 
-    getLanguage(chatId: string, defaultLang: Language = 'en'): Language {
+    getLanguage(chatId: string, defaultLang: Language): Language {
         return this.preferences[chatId]?.language || defaultLang;
     }
 

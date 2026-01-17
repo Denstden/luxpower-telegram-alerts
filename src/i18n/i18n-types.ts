@@ -72,6 +72,9 @@ export type Translation = {
     charts: {
         generating: string;
         title: string;
+        chartTitle: string;
+        chartOnLabel: string;
+        chartOffLabel: string;
         greenOn: string;
         redOff: string;
         noData: string;
@@ -85,6 +88,12 @@ export type Translation = {
         period1Week: string;
         period1Month: string;
         periodHours: string;
+    };
+    duration: {
+        days: string;
+        hours: string;
+        minutes: string;
+        seconds: string;
     };
     subscribe: {
         subscribed: string;
