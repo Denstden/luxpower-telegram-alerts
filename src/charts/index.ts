@@ -1,1 +1,1 @@
-export { ChartGenerator } from './chart-generator';
+export {ChartGenerator} from './chart-generator';

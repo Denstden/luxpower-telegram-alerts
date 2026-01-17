@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../utils';
+import {logger} from '../utils';
 
 const CACHE_DIR = path.join(process.cwd(), 'history-cache');
 
@@ -12,7 +12,7 @@ interface HistoryPoint {
 export class HistoryCache {
     constructor() {
         if (!fs.existsSync(CACHE_DIR)) {
-            fs.mkdirSync(CACHE_DIR, { recursive: true });
+            fs.mkdirSync(CACHE_DIR, {recursive: true});
         }
     }
 
@@ -26,21 +26,24 @@ export class HistoryCache {
             if (fs.existsSync(filePath)) {
                 const today = new Date().toISOString().split('T')[0];
                 const isToday = date === today;
-                
+
                 if (isToday) {
                     const stats = fs.statSync(filePath);
                     const now = new Date();
                     const fileAge = (now.getTime() - stats.mtime.getTime()) / (1000 * 60 * 60);
-                    
+
                     if (fileAge >= maxAgeHours) {
                         return null;
                     }
                 }
-                
+
                 const content = fs.readFileSync(filePath, 'utf-8');
                 const data = JSON.parse(content);
                 if (Array.isArray(data)) {
-                    return data;
+                    const sorted = [...data].sort((a, b) => {
+                        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+                    });
+                    return sorted;
                 }
             }
         } catch (error: any) {
@@ -58,7 +61,7 @@ export class HistoryCache {
 
             const today = new Date().toISOString().split('T')[0];
             const isToday = date === today;
-            
+
             if (isToday) {
                 return true;
             }
@@ -98,10 +101,49 @@ export class HistoryCache {
         }
     }
 
+    filterChangePoints(data: HistoryPoint[]): HistoryPoint[] {
+        if (data.length === 0) {
+            return data;
+        }
+
+        if (data.length === 1) {
+            return data;
+        }
+
+        const sorted = [...data].sort((a, b) => {
+            return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+        });
+
+        const filtered: HistoryPoint[] = [];
+        let lastStatus: boolean | null = null;
+
+        for (let i = 0; i < sorted.length; i++) {
+            const point = sorted[i];
+            const isFirst = i === 0;
+            const isLast = i === sorted.length - 1;
+
+            if (isFirst || isLast || point.hasElectricity !== lastStatus) {
+                filtered.push(point);
+                lastStatus = point.hasElectricity;
+            }
+        }
+
+        return filtered;
+    }
+
     saveCachedData(date: string, data: HistoryPoint[]): void {
         try {
             const filePath = this.getCacheFilePath(date);
-            fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+
+            const sorted = [...data].sort((a, b) => {
+                return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+            });
+
+            const filteredData = this.filterChangePoints(sorted);
+            fs.writeFileSync(filePath, JSON.stringify(filteredData, null, 2));
+            if (filteredData.length < data.length) {
+                logger.debug(`Filtered ${data.length} points to ${filteredData.length} change points for ${date}`);
+            }
         } catch (error: any) {
             logger.warn(`Error saving cache for ${date}: ${error.message}`);
         }

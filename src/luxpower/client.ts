@@ -1,8 +1,8 @@
 import axios, {AxiosInstance, AxiosResponse} from 'axios';
-import { HistoryCache } from '../storage';
-import { logger } from '../utils';
-import { RuntimeData, ElectricityStatus, HistoryPoint } from './types';
-import { LuxpowerDataProcessor } from './data-processor';
+import {HistoryCache} from '../storage';
+import {logger} from '../utils';
+import {ElectricityStatus, HistoryPoint, RuntimeData} from './types';
+import {LuxpowerDataProcessor} from './data-processor';
 
 export class LuxpowerClient {
     private username: string;
@@ -125,7 +125,7 @@ export class LuxpowerClient {
         const historyPoints: HistoryPoint[] = [];
         const maxRowsPerPage = 10000;
         const parallelDays = 10;
-        
+
         const datesToFetch: string[] = [];
         const currentDate = new Date(startDate);
         while (currentDate <= endDate) {
@@ -133,7 +133,7 @@ export class LuxpowerClient {
             datesToFetch.push(dateStr);
             currentDate.setDate(currentDate.getDate() + 1);
         }
-        
+
         const fetchDayData = async (formattedDate: string): Promise<HistoryPoint[]> => {
             try {
                 if (this.historyCache) {
@@ -145,13 +145,13 @@ export class LuxpowerClient {
                         } else {
                             logger.info(`Cache for ${formattedDate} is incomplete (missing 11 PM+ data), re-fetching...`);
                         }
+                    }
                 }
-                }
-                
+
                 let page = 1;
                 let hasMoreData = true;
                 const dayPoints: HistoryPoint[] = [];
-                
+
                 while (hasMoreData) {
                     const response: AxiosResponse<any> = await this.httpClient.post(
                         `/WManage/web/analyze/data/${formattedDate}?serialNum=${serialNum}`,
@@ -167,19 +167,19 @@ export class LuxpowerClient {
                     if (response.data?.rows && Array.isArray(response.data.rows)) {
                         const rowsCount = response.data.rows.length;
                         const totalRows = response.data.total || 0;
-                        
+
                         if (rowsCount === 0) {
                             hasMoreData = false;
                             break;
                         }
-                        
+
                         for (const point of response.data.rows) {
                             const processedPoint = this.dataProcessor.processHistoryPoint(point);
                             if (processedPoint) {
                                 dayPoints.push(processedPoint);
                             }
                         }
-                        
+
                         if (rowsCount < maxRowsPerPage) {
                             hasMoreData = false;
                         } else if (totalRows > 0 && (page * maxRowsPerPage >= totalRows)) {
@@ -191,11 +191,11 @@ export class LuxpowerClient {
                         hasMoreData = false;
                     }
                 }
-                
+
                 if (dayPoints.length > 0 && this.historyCache) {
                     this.historyCache.saveCachedData(formattedDate, dayPoints);
                 }
-                
+
                 return dayPoints;
             } catch (error: any) {
                 if (error.response?.status === 401 || error.response?.status === 403) {
@@ -207,21 +207,21 @@ export class LuxpowerClient {
                     }
                     return fetchDayData(formattedDate);
                 }
-                
+
                 if (error.response?.status === 404 || error.response?.status === 400) {
                     return [];
                 }
-                
+
                 logger.warn(`Error fetching data for ${formattedDate}: ${error.message}`);
                 return [];
             }
         };
-        
+
         for (let i = 0; i < datesToFetch.length; i += parallelDays) {
             const batch = datesToFetch.slice(i, i + parallelDays);
-            
+
             const results = await Promise.all(batch.map(date => fetchDayData(date)));
-            
+
             for (const dayData of results) {
                 for (const point of dayData) {
                     const pointDate = new Date(point.timestamp);
@@ -231,7 +231,13 @@ export class LuxpowerClient {
                 }
             }
         }
-        
-        return historyPoints.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+        const sorted = historyPoints.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+        if (this.historyCache) {
+            return this.historyCache.filterChangePoints(sorted);
+        }
+
+        return sorted;
     }
 }
