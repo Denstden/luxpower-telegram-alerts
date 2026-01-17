@@ -19,8 +19,11 @@ This project is a simple TypeScript service for monitoring electricity status vi
 
 - `src/monitor.ts` - Main service entry point
 - `src/luxpower.ts` - Luxpower API client (simplified, no complex auth)
-- `src/telegram.ts` - Telegram bot with subscriber management
+- `src/telegram.ts` - Telegram bot with subscriber management and group support
 - `src/subscribers.ts` - Subscriber persistence
+- `src/user-preferences.ts` - User language preferences
+- `src/history-cache.ts` - Historical data caching
+- `src/chart-generator.ts` - SVG chart generation
 
 ## Important Notes
 
@@ -28,6 +31,9 @@ This project is a simple TypeScript service for monitoring electricity status vi
 - No manual session management needed
 - Subscribers stored in `subscribers.json` (gitignored)
 - Environment variables in `.env` (gitignored)
+- **Group support**: Bot works differently in groups (read-only, notifications only) vs private chats (full functionality)
+- Groups default to Ukrainian language, private chats default to English
+- Negative chat IDs indicate groups, positive IDs indicate private chats
 
 ## When Making Changes
 

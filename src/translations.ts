@@ -95,6 +95,10 @@ export interface Translations {
     noLongerReceive: string;
     useStart: string;
     notSubscribed: string;
+    groupSubscribed: string;
+    groupAlreadySubscribed: string;
+    groupUnsubscribed: string;
+    groupJoke: string;
   };
   help: {
     title: string;
@@ -126,6 +130,11 @@ export interface Translations {
     current: string;
     select: string;
   };
+  group: {
+    readonlyMessage: string;
+    electricityAppeared: string;
+    electricityDisappeared: string;
+  };
 }
 
 const translations: Record<Language, Translations> = {
@@ -151,10 +160,10 @@ const translations: Record<Language, Translations> = {
       language: '🌐 Мова'
     },
     notifications: {
-      electricityAppeared: '⚡ <b>Електрика з\'явилася!</b>',
-      electricityDisappeared: '🔌 <b>Електрика зникла!</b>',
-      wasOffFor: '\n⚫ Була вимкнена протягом:',
-      wasOnFor: '\n⚫ Була увімкнена протягом:',
+      electricityAppeared: '⚡ <b>Світло з\'явилося!</b>\n\nУра! Світло повернулося! 🎉',
+      electricityDisappeared: '🔌 <b>Світло зникло!</b>\n\nОт халепа! Світло пропало! 😞',
+      wasOffFor: '\n⏱️ Світла не було протягом:',
+      wasOnFor: '\n⏱️ Світло було протягом:',
       gridPower: 'Потужність мережі:',
       time: 'Час:',
       useInfo: 'Використовуйте /info для перегляду повної інформації про інвертор.'
@@ -165,7 +174,7 @@ const translations: Record<Language, Translations> = {
       systemStatus: '🔄 Статус системи:',
       currentState: '⏱️ Поточний стан:',
       gridStatus: '🔌 Статус мережі',
-      electricity: 'Електрика:',
+      electricity: 'Світло:',
       voltage: 'Напруга:',
       consumption: 'Споживання:',
       grid: 'МЕРЕЖА:',
@@ -181,8 +190,8 @@ const translations: Record<Language, Translations> = {
       powerFlow: '⚙️ Потік потужності',
       inverter: 'Інвертор:',
       epsBackup: 'Резервне живлення EPS:',
-      statusOn: '🟢 УВІМКНЕНО',
-      statusOff: '🔴 ВИМКНЕНО',
+      statusOn: '🟢 Є світло',
+      statusOff: '🔴 Немає світла',
       statusUnknown: '⚪ Невідомо',
       batteryCharging: '🔋 Зарядка',
       batteryDischarging: '⚡ Розрядка',
@@ -193,16 +202,16 @@ const translations: Record<Language, Translations> = {
       current: 'Поточний:',
       since: 'З:',
       sessionStats: '📈 Статистика сесії (з моменту запуску сервісу)',
-      totalOnTime: 'Загальний час УВІМКНЕНО:',
-      totalOffTime: 'Загальний час ВИМКНЕНО:',
+      totalOnTime: 'Загальний час зі світлом:',
+      totalOffTime: 'Загальний час без світла:',
       sessionDuration: 'Тривалість сесії:',
       notAvailable: 'Відстеження статусу недоступне.'
     },
     charts: {
       generating: '📊 Генерація графіка для',
       title: '📊 <b>Історія статусу електрики</b>',
-      greenOn: '🟢 Зелений = УВІМКНЕНО',
-      redOff: '🔴 Червоний = ВИМКНЕНО',
+      greenOn: '🟢 Зелений = Є світло',
+      redOff: '🔴 Червоний = Немає світла',
       noData: '❌ Немає даних історії для',
       notAvailable: '❌ Генерація графіків недоступна. Сервіс може бути не повністю налаштований.',
       error: '❌ Помилка генерації графіка:',
@@ -217,13 +226,17 @@ const translations: Record<Language, Translations> = {
     },
     subscribe: {
       subscribed: '✅ <b>Підписано!</b>',
-      willReceive: 'Тепер ви будете отримувати сповіщення про статус електрики.',
+      willReceive: 'Тепер ви будете отримувати сповіщення про статус світла.',
       useButtons: 'Використовуйте кнопки нижче для взаємодії з ботом.',
       alreadySubscribed: 'Ви вже підписані! Використовуйте кнопки нижче для взаємодії з ботом.',
       unsubscribed: '❌ <b>Відписано</b>',
       noLongerReceive: 'Ви більше не будете отримувати сповіщення.',
       useStart: 'Використовуйте /start для повторної підписки.',
-      notSubscribed: 'Ви не підписані. Використовуйте /start для підписки.'
+      notSubscribed: 'Ви не підписані. Використовуйте /start для підписки.',
+      groupSubscribed: '✅ <b>Група підписана!</b>\n\nТепер цей бот буде сповіщати цю групу про відключення світла.',
+      groupAlreadySubscribed: '✅ Ця група вже підписана на сповіщення про відключення світла.',
+      groupUnsubscribed: '❌ <b>Група відписана</b>\n\nЦя група більше не буде отримувати сповіщення про відключення світла.\n\n💡 Ви можете підписатися знову в будь-який момент, надіславши /start.',
+      groupJoke: '💡 <i>P.S. Не хвилюйтесь, якщо світло зникне - бот залишиться на зв\'язку! Він працює на батарейках... ех, ні, на сервері 😄</i>'
     },
     help: {
       title: '📖 Доступні команди',
@@ -241,7 +254,7 @@ const translations: Record<Language, Translations> = {
       other: '<b>Інше:</b>',
       help: '/help - Показати це повідомлення допомоги',
       useButtons: 'Ви також можете використовувати кнопки в меню для швидкого доступу.',
-      autoNotify: 'Бот автоматично сповістить вас, коли електрика з\'явиться або зникне.',
+      autoNotify: 'Бот автоматично сповістить вас, коли світло з\'явиться або зникне.',
       version: '📦 <b>Версія:</b>'
     },
     errors: {
@@ -254,6 +267,11 @@ const translations: Record<Language, Translations> = {
       changed: '🌐 Мову змінено на',
       current: 'Поточна мова:',
       select: 'Виберіть мову:'
+    },
+    group: {
+      readonlyMessage: '🔇 Цей бот працює лише для читання в групах.\n\n📊 Для перегляду графіків, історії та використання команд, будь ласка, підпишіться на бота особисто, надіславши /start в приватному чаті.',
+      electricityAppeared: '⚡ <b>Світло з\'явилося!</b> Ура! 🎉',
+      electricityDisappeared: '🔌 <b>Світло зникло!</b> От халепа! 😞'
     }
   },
   en: {
@@ -278,10 +296,10 @@ const translations: Record<Language, Translations> = {
       language: '🌐 Language'
     },
     notifications: {
-      electricityAppeared: '⚡ <b>Electricity Appeared!</b>',
-      electricityDisappeared: '🔌 <b>Electricity Disappeared!</b>',
-      wasOffFor: '\n⚫ Was off for:',
-      wasOnFor: '\n⚫ Was on for:',
+      electricityAppeared: '⚡ <b>Electricity Appeared!</b>\n\nHooray! The lights are back! 🎉',
+      electricityDisappeared: '🔌 <b>Electricity Disappeared!</b>\n\nOh no! The lights went out! 😞',
+      wasOffFor: '\n⏱️ Was off for:',
+      wasOnFor: '\n⏱️ Was on for:',
       gridPower: 'Grid Power:',
       time: 'Time:',
       useInfo: 'Use /info to see full inverter status.'
@@ -350,7 +368,11 @@ const translations: Record<Language, Translations> = {
       unsubscribed: '❌ <b>Unsubscribed</b>',
       noLongerReceive: 'You will no longer receive notifications.',
       useStart: 'Use /start to subscribe again.',
-      notSubscribed: 'You are not subscribed. Use /start to subscribe.'
+      notSubscribed: 'You are not subscribed. Use /start to subscribe.',
+      groupSubscribed: '✅ <b>Group subscribed!</b>\n\nThis bot will now notify this group about power outages.',
+      groupAlreadySubscribed: '✅ This group is already subscribed to power outage notifications.',
+      groupUnsubscribed: '❌ <b>Group unsubscribed</b>\n\nThis group will no longer receive power outage notifications.\n\n💡 You can subscribe again at any time by sending /start.',
+      groupJoke: '💡 <i>P.S. Don\'t worry if the lights go out - the bot will stay connected! It runs on batteries... oh wait, it runs on a server 😄</i>'
     },
     help: {
       title: '📖 Available Commands',
@@ -381,6 +403,11 @@ const translations: Record<Language, Translations> = {
       changed: '🌐 Language changed to',
       current: 'Current language:',
       select: 'Select language:'
+    },
+    group: {
+      readonlyMessage: '🔇 This bot is read-only in groups.\n\n📊 To view charts, history, and use commands, please subscribe to the bot personally by sending /start in a private chat.',
+      electricityAppeared: '⚡ <b>Lights Appeared!</b> Hooray! The lights are back! 🎉',
+      electricityDisappeared: '🔌 <b>Lights Disappeared!</b> Oh no! The lights went out! 😞'
     }
   }
 };

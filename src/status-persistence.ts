@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from './logger';
+import { ensureJsonFileExists } from './file-utils';
 
 const STATUS_FILE = path.join(process.cwd(), 'status.json');
 
@@ -16,22 +17,37 @@ export class StatusPersistence {
   private data: StatusData;
 
   constructor() {
+    this.ensureFileExists();
     this.data = this.load();
+  }
+
+  private ensureFileExists(): void {
+    const defaultData = {
+      currentStatus: null,
+      statusChangeTime: null,
+      totalOnTime: 0,
+      totalOffTime: 0,
+      sessionStartTime: new Date().toISOString()
+    };
+    ensureJsonFileExists(STATUS_FILE, JSON.stringify(defaultData, null, 2), 'status.json');
   }
 
   private load(): StatusData {
     try {
       if (fs.existsSync(STATUS_FILE)) {
-        const content = fs.readFileSync(STATUS_FILE, 'utf-8');
-        const data = JSON.parse(content);
-        const loaded = {
-          currentStatus: data.currentStatus ?? null,
-          statusChangeTime: data.statusChangeTime ?? null,
-          totalOnTime: data.totalOnTime ?? 0,
-          totalOffTime: data.totalOffTime ?? 0,
-          sessionStartTime: data.sessionStartTime ?? new Date().toISOString()
-        };
-        return loaded;
+        const stats = fs.statSync(STATUS_FILE);
+        if (stats.isFile()) {
+          const content = fs.readFileSync(STATUS_FILE, 'utf-8');
+          const data = JSON.parse(content);
+          const loaded = {
+            currentStatus: data.currentStatus ?? null,
+            statusChangeTime: data.statusChangeTime ?? null,
+            totalOnTime: data.totalOnTime ?? 0,
+            totalOffTime: data.totalOffTime ?? 0,
+            sessionStartTime: data.sessionStartTime ?? new Date().toISOString()
+          };
+          return loaded;
+        }
       }
     } catch (error: any) {
       logger.error(`Error loading status data: ${error.message}`);

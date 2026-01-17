@@ -1,12 +1,12 @@
-import axios, { AxiosResponse } from 'axios';
-import { SubscribersManager } from './subscribers';
-import { LuxpowerClient } from './luxpower';
-import { ChartGenerator } from './chart-generator';
+import axios, {AxiosResponse} from 'axios';
+import {SubscribersManager} from './subscribers';
+import {LuxpowerClient} from './luxpower';
+import {ChartGenerator} from './chart-generator';
 import * as packageJson from '../package.json';
 import FormData from 'form-data';
-import { logger } from './logger';
-import { getTranslations, Language } from './translations';
-import { UserPreferencesManager } from './user-preferences';
+import {logger} from './logger';
+import {getTranslations, Language} from './translations';
+import {UserPreferencesManager} from './user-preferences';
 
 interface TelegramResponse {
   ok: boolean;
@@ -20,6 +20,7 @@ interface TelegramUpdate {
   message?: {
     chat: {
       id: number;
+      type?: string;
       first_name?: string;
       username?: string;
     };
@@ -35,6 +36,7 @@ interface TelegramUpdate {
     message?: {
       chat: {
         id: number;
+        type?: string;
       };
     };
     data?: string;
@@ -72,13 +74,25 @@ export class TelegramBot {
   }
 
   private t(chatId: string) {
-    const lang = this.preferences.getLanguage(chatId);
+    const chatIdNum = parseInt(chatId, 10);
+    const isGroup = this.isGroupChat(chatIdNum);
+    const lang = this.preferences.getLanguage(chatId, isGroup ? 'uk' : 'en');
     return getTranslations(lang);
+  }
+
+  private isGroupChat(chatId: number | string): boolean {
+    const id = typeof chatId === 'string' ? parseInt(chatId, 10) : chatId;
+    return id < 0;
+  }
+
+  private async sendGroupReadonlyMessage(chatId: string): Promise<void> {
+    const t = this.t(chatId);
+    await this.sendMessage(chatId, t.group.readonlyMessage);
   }
 
   private async deleteWebhook(): Promise<void> {
     try {
-      await axios.post(`${this.apiUrl}/deleteWebhook`, { drop_pending_updates: true });
+      await axios.post(`${this.apiUrl}/deleteWebhook`, {drop_pending_updates: true});
       logger.debug('Webhook deleted (if any existed)');
     } catch (error: any) {
       logger.debug(`No webhook to delete or error deleting webhook: ${error.message}`);
@@ -116,13 +130,13 @@ export class TelegramBot {
   async sendMessage(chatId: string, text: string, replyMarkup?: any): Promise<TelegramResponse> {
     try {
       const response: AxiosResponse<TelegramResponse> = await axios.post(
-        `${this.apiUrl}/sendMessage`,
-        {
-          chat_id: chatId,
-          text: text,
-          parse_mode: 'HTML',
-          reply_markup: replyMarkup
-        }
+          `${this.apiUrl}/sendMessage`,
+          {
+            chat_id: chatId,
+            text: text,
+            parse_mode: 'HTML',
+            reply_markup: replyMarkup
+          }
       );
 
       return response.data;
@@ -141,25 +155,25 @@ export class TelegramBot {
     }
     const t = this.t(chatId);
     const isSubscribed = chatId ? this.subscribers.has(chatId) : false;
-    const subscribeButton = isSubscribed 
-      ? [{ text: t.buttons.unsubscribe, callback_data: 'unsubscribe' }]
-      : [{ text: t.buttons.subscribe, callback_data: 'subscribe' }];
-    
+    const subscribeButton = isSubscribed
+        ? [{text: t.buttons.unsubscribe, callback_data: 'unsubscribe'}]
+        : [{text: t.buttons.subscribe, callback_data: 'subscribe'}];
+
     return {
       inline_keyboard: [
         [
-          { text: t.buttons.inverterInfo, callback_data: 'info' },
-          { text: t.buttons.status, callback_data: 'status' }
+          {text: t.buttons.inverterInfo, callback_data: 'info'},
+          {text: t.buttons.status, callback_data: 'status'}
         ],
         [
-          { text: t.buttons.chart1Day, callback_data: 'chart_24' },
-          { text: t.buttons.chart1Week, callback_data: 'chart_168' },
-          { text: t.buttons.chart1Month, callback_data: 'chart_720' }
+          {text: t.buttons.chart1Day, callback_data: 'chart_24'},
+          {text: t.buttons.chart1Week, callback_data: 'chart_168'},
+          {text: t.buttons.chart1Month, callback_data: 'chart_720'}
         ],
         subscribeButton,
         [
-          { text: t.buttons.help, callback_data: 'help' },
-          { text: t.buttons.language, callback_data: 'language' }
+          {text: t.buttons.help, callback_data: 'help'},
+          {text: t.buttons.language, callback_data: 'language'}
         ]
       ]
     };
@@ -173,10 +187,10 @@ export class TelegramBot {
     }
 
     logger.info(`Broadcasting to ${chatIds.length} subscriber(s)...`);
-    const promises = chatIds.map(chatId => 
-      this.sendMessage(chatId, text).catch(error => {
-        logger.warn(`Failed to send to ${chatId}: ${error.message}`);
-      })
+    const promises = chatIds.map(chatId =>
+        this.sendMessage(chatId, text).catch(error => {
+          logger.warn(`Failed to send to ${chatId}: ${error.message}`);
+        })
     );
     await Promise.all(promises);
   }
@@ -184,24 +198,36 @@ export class TelegramBot {
   async notifyElectricityAppeared(gridPower: number, previousOffDuration: number = 0): Promise<void> {
     const chatIds = this.subscribers.getAll();
     for (const chatId of chatIds) {
+      const chatIdNum = parseInt(chatId, 10);
+      const isGroup = this.isGroupChat(chatIdNum);
       const t = this.t(chatId);
-      const offDurationText = previousOffDuration > 0 ? `${t.notifications.wasOffFor} ${this.formatDuration(previousOffDuration)}` : '';
-      const message = `${t.notifications.electricityAppeared}\n\n${t.notifications.gridPower} ${gridPower.toFixed(2)} W${offDurationText}\n${t.notifications.time} ${new Date().toLocaleString()}\n\n${t.notifications.useInfo}`;
-      const keyboard = {
-        inline_keyboard: [
-          [
-            { text: t.buttons.inverterInfo, callback_data: 'info' },
-            { text: t.buttons.status, callback_data: 'status' }
-          ],
-          [
-            { text: t.buttons.chart1DayFull, callback_data: 'chart_24' },
-            { text: t.buttons.chart1WeekFull, callback_data: 'chart_168' }
-          ],
-          [
-            { text: t.buttons.mainMenu, callback_data: 'menu' }
+
+      let message: string;
+      let keyboard: any = undefined;
+
+      if (isGroup) {
+        const offDurationText = previousOffDuration > 0 ? `\n${t.notifications.wasOffFor} ${this.formatDuration(previousOffDuration)}` : '';
+        message = `${t.group.electricityAppeared}${offDurationText}\n\n${t.group.readonlyMessage.split('\n\n')[1]}`;
+      } else {
+        const offDurationText = previousOffDuration > 0 ? `${t.notifications.wasOffFor} ${this.formatDuration(previousOffDuration)}` : '';
+        message = `${t.notifications.electricityAppeared}\n\n${t.notifications.gridPower} ${gridPower.toFixed(2)} W${offDurationText}\n${t.notifications.time} ${new Date().toLocaleString()}\n\n${t.notifications.useInfo}`;
+        keyboard = {
+          inline_keyboard: [
+            [
+              {text: t.buttons.inverterInfo, callback_data: 'info'},
+              {text: t.buttons.status, callback_data: 'status'}
+            ],
+            [
+              {text: t.buttons.chart1DayFull, callback_data: 'chart_24'},
+              {text: t.buttons.chart1WeekFull, callback_data: 'chart_168'}
+            ],
+            [
+              {text: t.buttons.mainMenu, callback_data: 'menu'}
+            ]
           ]
-        ]
-      };
+        };
+      }
+
       await this.sendMessage(chatId, message, keyboard).catch(error => {
         logger.warn(`Failed to send to ${chatId}: ${error.message}`);
       });
@@ -211,24 +237,36 @@ export class TelegramBot {
   async notifyElectricityDisappeared(previousOnDuration: number = 0): Promise<void> {
     const chatIds = this.subscribers.getAll();
     for (const chatId of chatIds) {
+      const chatIdNum = parseInt(chatId, 10);
+      const isGroup = this.isGroupChat(chatIdNum);
       const t = this.t(chatId);
-      const onDurationText = previousOnDuration > 0 ? `${t.notifications.wasOnFor} ${this.formatDuration(previousOnDuration)}` : '';
-      const message = `${t.notifications.electricityDisappeared}${onDurationText}\n\n${t.notifications.time} ${new Date().toLocaleString()}\n\n${t.notifications.useInfo}`;
-      const keyboard = {
-        inline_keyboard: [
-          [
-            { text: t.buttons.inverterInfo, callback_data: 'info' },
-            { text: t.buttons.status, callback_data: 'status' }
-          ],
-          [
-            { text: t.buttons.chart1DayFull, callback_data: 'chart_24' },
-            { text: t.buttons.chart1WeekFull, callback_data: 'chart_168' }
-          ],
-          [
-            { text: t.buttons.mainMenu, callback_data: 'menu' }
+
+      let message: string;
+      let keyboard: any = undefined;
+
+      if (isGroup) {
+        const onDurationText = previousOnDuration > 0 ? `\n${t.notifications.wasOnFor} ${this.formatDuration(previousOnDuration)}` : '';
+        message = `${t.group.electricityDisappeared}${onDurationText}\n\n${t.group.readonlyMessage.split('\n\n')[1]}`;
+      } else {
+        const onDurationText = previousOnDuration > 0 ? `${t.notifications.wasOnFor} ${this.formatDuration(previousOnDuration)}` : '';
+        message = `${t.notifications.electricityDisappeared}${onDurationText}\n\n${t.notifications.time} ${new Date().toLocaleString()}\n\n${t.notifications.useInfo}`;
+        keyboard = {
+          inline_keyboard: [
+            [
+              {text: t.buttons.inverterInfo, callback_data: 'info'},
+              {text: t.buttons.status, callback_data: 'status'}
+            ],
+            [
+              {text: t.buttons.chart1DayFull, callback_data: 'chart_24'},
+              {text: t.buttons.chart1WeekFull, callback_data: 'chart_168'}
+            ],
+            [
+              {text: t.buttons.mainMenu, callback_data: 'menu'}
+            ]
           ]
-        ]
-      };
+        };
+      }
+
       await this.sendMessage(chatId, message, keyboard).catch(error => {
         logger.warn(`Failed to send to ${chatId}: ${error.message}`);
       });
@@ -243,10 +281,10 @@ export class TelegramBot {
     }
 
     logger.info(`Broadcasting to ${chatIds.length} subscriber(s)...`);
-    const promises = chatIds.map(chatId => 
-      this.sendMessage(chatId, text, replyMarkup).catch(error => {
-        logger.warn(`Failed to send to ${chatId}: ${error.message}`);
-      })
+    const promises = chatIds.map(chatId =>
+        this.sendMessage(chatId, text, replyMarkup).catch(error => {
+          logger.warn(`Failed to send to ${chatId}: ${error.message}`);
+        })
     );
     await Promise.all(promises);
   }
@@ -255,19 +293,19 @@ export class TelegramBot {
     if (this.isPolling) {
       return;
     }
-    
+
     this.isPolling = true;
     try {
       const response: AxiosResponse<{ ok: boolean; result: TelegramUpdate[] }> = await axios.get(
-        `${this.apiUrl}/getUpdates`,
-        {
-          params: {
-            offset: this.lastUpdateId + 1,
-            timeout: 5,
-            allowed_updates: ['message', 'callback_query']
-          },
-          timeout: 6000
-        }
+          `${this.apiUrl}/getUpdates`,
+          {
+            params: {
+              offset: this.lastUpdateId + 1,
+              timeout: 5,
+              allowed_updates: ['message', 'callback_query']
+            },
+            timeout: 6000
+          }
       );
 
       if (response.data.ok && response.data.result) {
@@ -278,6 +316,7 @@ export class TelegramBot {
 
           if (update.callback_query) {
             const chatId = update.callback_query.message?.chat.id.toString() || update.callback_query.from.id.toString();
+            const chatIdNum = update.callback_query.message?.chat.id || update.callback_query.from.id;
             const data = update.callback_query.data;
             const userName = update.callback_query.from.first_name || update.callback_query.from.username || 'User';
 
@@ -285,6 +324,11 @@ export class TelegramBot {
               await axios.post(`${this.apiUrl}/answerCallbackQuery`, {
                 callback_query_id: update.callback_query.id
               });
+
+              if (this.isGroupChat(chatIdNum)) {
+                await this.sendGroupReadonlyMessage(chatId);
+                return;
+              }
 
               if (data === 'info') {
                 await this.sendInverterInfo(chatId);
@@ -318,6 +362,7 @@ export class TelegramBot {
             }
           } else if (update.message?.text && update.message?.chat) {
             const chatId = update.message.chat.id.toString();
+            const chatIdNum = update.message.chat.id;
             const text = update.message.text.trim().toLowerCase();
             const userName = update.message.chat.first_name || update.message.chat.username || 'User';
 
@@ -326,6 +371,11 @@ export class TelegramBot {
                 await this.handleSubscribe(chatId, userName);
               } else if (text === '/stop') {
                 await this.handleUnsubscribe(chatId, userName);
+              } else if (this.isGroupChat(chatIdNum)) {
+                if (text.startsWith('/')) {
+                  await this.sendGroupReadonlyMessage(chatId);
+                }
+                return;
               } else if (text === '/status') {
                 await this.handleStatusCommand(chatId);
               } else if (text === '/info' || text === '/inverter') {
@@ -394,10 +444,10 @@ export class TelegramBot {
     if (this.pollingIntervalId) {
       clearInterval(this.pollingIntervalId);
     }
-    
+
     await this.deleteWebhook();
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     this.pollingIntervalId = setInterval(() => {
       if (!this.isPolling) {
         this.handleUpdates().catch(error => {
@@ -461,7 +511,7 @@ export class TelegramBot {
       let message = `${t.inverter.title}\n\n`;
       message += `${t.inverter.time} ${deviceTime}\n`;
       message += `${t.inverter.systemStatus} ${statusText}\n`;
-      
+
       if (this.statusTracker) {
         const stats = this.statusTracker();
         if (stats.currentDuration > 0) {
@@ -469,7 +519,7 @@ export class TelegramBot {
         }
       }
       message += `\n`;
-      
+
       message += `${t.inverter.gridStatus}\n`;
       message += `   ${t.inverter.electricity} ${electricityStatus}\n`;
       message += `   ${t.inverter.voltage} ${gridVoltage} V\n`;
@@ -505,8 +555,8 @@ export class TelegramBot {
 
       const keyboard = {
         inline_keyboard: [
-          [{ text: t.buttons.refresh, callback_data: 'info' }],
-          [{ text: t.buttons.mainMenu, callback_data: 'menu' }]
+          [{text: t.buttons.refresh, callback_data: 'info'}],
+          [{text: t.buttons.mainMenu, callback_data: 'menu'}]
         ]
       };
 
@@ -519,32 +569,151 @@ export class TelegramBot {
 
   private async handleSubscribe(chatId: string, userName: string): Promise<void> {
     const t = this.t(chatId);
-    const added = this.subscribers.add(chatId);
-    if (added) {
-      await this.sendMessage(
-        chatId,
-        `${t.subscribe.subscribed}\n\n${t.subscribe.willReceive}\n\n${t.subscribe.useButtons}`,
-        this.getMainMenu(chatId)
-      );
-      logger.info(`User ${userName} (${chatId}) subscribed. Total subscribers: ${this.subscribers.count()}`);
-    } else {
-      await this.sendMessage(
-        chatId,
-        `${t.subscribe.alreadySubscribed}`,
-        this.getMainMenu(chatId)
-      );
+    const chatIdNum = parseInt(chatId, 10);
+    const isGroup = this.isGroupChat(chatIdNum);
+
+    try {
+      const wasAlreadySubscribed = this.subscribers.has(chatId);
+      logger.info(`Subscribe attempt for ${chatId} (was already subscribed: ${wasAlreadySubscribed})`);
+
+      let added = false;
+      if (wasAlreadySubscribed) {
+        added = false;
+      } else {
+        added = this.subscribers.add(chatId);
+        if (!added) {
+          logger.warn(`ChatId ${chatId} add() returned false but was not subscribed. Force adding...`);
+          this.subscribers.forceAdd(chatId);
+          added = true;
+        }
+      }
+
+      logger.info(`Subscribe result for ${chatId}: added=${added}, current count=${this.subscribers.count()}`);
+
+      if (added) {
+        if (isGroup) {
+          await this.sendMessage(
+              chatId,
+              `${t.subscribe.groupSubscribed}\n\n${t.subscribe.groupJoke}`
+          );
+        } else {
+          await this.sendMessage(
+              chatId,
+              `${t.subscribe.subscribed}\n\n${t.subscribe.willReceive}\n\n${t.subscribe.useButtons}`,
+              this.getMainMenu(chatId)
+          );
+        }
+        logger.info(`${isGroup ? 'Group' : 'User'} ${userName} (${chatId}) subscribed. Total subscribers: ${this.subscribers.count()}`);
+
+        const enableTestNotifications = process.env.ENABLE_TEST_NOTIFICATIONS === 'true';
+        if (enableTestNotifications) {
+          try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const testGridPower = 2500.0;
+            const testOffDuration = 3600;
+            const testOnDuration = 7200;
+
+            let appearedMessage: string;
+            let appearedKeyboard: any = undefined;
+
+            if (isGroup) {
+              appearedMessage = `${t.group.electricityAppeared}\n${t.notifications.wasOffFor} ${this.formatDuration(testOffDuration)}`;
+            } else {
+              appearedMessage = `${t.notifications.electricityAppeared}\n\n${t.notifications.gridPower} ${testGridPower.toFixed(2)} W\n${t.notifications.wasOffFor} ${this.formatDuration(testOffDuration)}\n${t.notifications.time} ${new Date().toLocaleString()}\n\n${t.notifications.useInfo}`;
+              appearedKeyboard = {
+                inline_keyboard: [
+                  [
+                    {text: t.buttons.inverterInfo, callback_data: 'info'},
+                    {text: t.buttons.status, callback_data: 'status'}
+                  ],
+                  [
+                    {text: t.buttons.chart1DayFull, callback_data: 'chart_24'},
+                    {text: t.buttons.chart1WeekFull, callback_data: 'chart_168'}
+                  ],
+                  [
+                    {text: t.buttons.mainMenu, callback_data: 'menu'}
+                  ]
+                ]
+              };
+            }
+
+            await this.sendMessage(chatId, appearedMessage, appearedKeyboard).catch(error => {
+              logger.warn(`Failed to send test appeared notification to ${chatId}: ${error.message}`);
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            let disappearedMessage: string;
+            let disappearedKeyboard: any = undefined;
+
+            if (isGroup) {
+              disappearedMessage = `${t.group.electricityDisappeared}\n${t.notifications.wasOnFor} ${this.formatDuration(testOnDuration)}`;
+            } else {
+              disappearedMessage = `${t.notifications.electricityDisappeared}\n\n${t.notifications.wasOnFor} ${this.formatDuration(testOnDuration)}\n\n${t.notifications.time} ${new Date().toLocaleString()}\n\n${t.notifications.useInfo}`;
+              disappearedKeyboard = {
+                inline_keyboard: [
+                  [
+                    {text: t.buttons.inverterInfo, callback_data: 'info'},
+                    {text: t.buttons.status, callback_data: 'status'}
+                  ],
+                  [
+                    {text: t.buttons.chart1DayFull, callback_data: 'chart_24'},
+                    {text: t.buttons.chart1WeekFull, callback_data: 'chart_168'}
+                  ],
+                  [
+                    {text: t.buttons.mainMenu, callback_data: 'menu'}
+                  ]
+                ]
+              };
+            }
+
+            await this.sendMessage(chatId, disappearedMessage, disappearedKeyboard).catch(error => {
+              logger.warn(`Failed to send test disappeared notification to ${chatId}: ${error.message}`);
+            });
+          } catch (testError: any) {
+            logger.warn(`Error sending test notifications to ${chatId}: ${testError.message}`);
+          }
+        }
+      } else {
+        if (isGroup) {
+          await this.sendMessage(
+              chatId,
+              `${t.subscribe.groupAlreadySubscribed}\n\n${t.subscribe.groupJoke}`
+          );
+        } else {
+          await this.sendMessage(
+              chatId,
+              `${t.subscribe.alreadySubscribed}`,
+              this.getMainMenu(chatId)
+          );
+        }
+      }
+    } catch (error: any) {
+      logger.error(`Error in handleSubscribe for ${chatId}: ${error.message}`);
+      await this.sendMessage(chatId, `❌ Error: ${error.message}`).catch(() => {
+      });
     }
   }
 
   private async handleUnsubscribe(chatId: string, userName: string): Promise<void> {
     const t = this.t(chatId);
+    const chatIdNum = parseInt(chatId, 10);
+    const isGroup = this.isGroupChat(chatIdNum);
     const removed = this.subscribers.remove(chatId);
+
     if (removed) {
-      await this.sendMessage(
-        chatId,
-        `${t.subscribe.unsubscribed}\n\n${t.subscribe.noLongerReceive}\n\n${t.subscribe.useStart}`
-      );
-      logger.info(`User ${userName} (${chatId}) unsubscribed. Total subscribers: ${this.subscribers.count()}`);
+      if (isGroup) {
+        await this.sendMessage(
+            chatId,
+            t.subscribe.groupUnsubscribed
+        );
+      } else {
+        await this.sendMessage(
+            chatId,
+            `${t.subscribe.unsubscribed}\n\n${t.subscribe.noLongerReceive}\n\n${t.subscribe.useStart}`
+        );
+      }
+      logger.info(`${isGroup ? 'Group' : 'User'} ${userName} (${chatId}) unsubscribed. Total subscribers: ${this.subscribers.count()}`);
     } else {
       await this.sendMessage(chatId, t.subscribe.notSubscribed);
     }
@@ -553,13 +722,13 @@ export class TelegramBot {
   private async handleStatusCommand(chatId: string): Promise<void> {
     const t = this.t(chatId);
     let statusInfo = '';
-    
+
     if (this.statusTracker) {
       const stats = this.statusTracker();
       const statusText = stats.currentStatus === true ? t.inverter.statusOn : stats.currentStatus === false ? t.inverter.statusOff : t.inverter.statusUnknown;
-      
+
       statusInfo += `${t.status.title}\n`;
-      
+
       if (stats.statusChangeTime && stats.currentDuration >= 0) {
         const durationFormatted = this.formatDuration(stats.currentDuration);
         statusInfo += `${t.status.current} ${statusText} (${durationFormatted})\n`;
@@ -571,7 +740,7 @@ export class TelegramBot {
       } else {
         statusInfo += `${t.status.current} ${statusText}\n`;
       }
-      
+
       if (stats.sessionDuration > 0) {
         const sessionHours = Math.floor(stats.sessionDuration / 3600);
         const sessionMinutes = Math.floor((stats.sessionDuration % 3600) / 60);
@@ -583,7 +752,7 @@ export class TelegramBot {
     } else {
       statusInfo = `${t.status.title}\n\n${t.status.notAvailable}`;
     }
-    
+
     await this.sendMessage(chatId, statusInfo, this.getMainMenu(chatId));
   }
 
@@ -610,7 +779,7 @@ export class TelegramBot {
 
       const endDate = new Date();
       const startDate = new Date(endDate.getTime() - (hours * 60 * 60 * 1000));
-      
+
       const historyData = await this.luxpower.getHistoryData(this.plantId, startDate, endDate);
 
       if (historyData.length === 0) {
@@ -618,9 +787,11 @@ export class TelegramBot {
         return;
       }
 
-      const lang = this.preferences.getLanguage(chatId);
+      const chatIdNum = parseInt(chatId, 10);
+      const isGroup = this.isGroupChat(chatIdNum);
+      const lang = this.preferences.getLanguage(chatId, isGroup ? 'uk' : 'en');
       const chartBuffer = await this.chartGenerator.generateTimelineChart(historyData, hours, lang);
-      
+
       const formData = new FormData();
       formData.append('chat_id', chatId);
       formData.append('photo', chartBuffer, {
@@ -637,13 +808,13 @@ export class TelegramBot {
       const keyboard = {
         inline_keyboard: [
           [
-            { text: t.buttons.refresh, callback_data: `chart_${hours}` },
-            { text: t.buttons.chart1Day, callback_data: 'chart_24' },
-            { text: t.buttons.chart1Week, callback_data: 'chart_168' },
-            { text: t.buttons.chart1Month, callback_data: 'chart_720' }
+            {text: t.buttons.refresh, callback_data: `chart_${hours}`},
+            {text: t.buttons.chart1Day, callback_data: 'chart_24'},
+            {text: t.buttons.chart1Week, callback_data: 'chart_168'},
+            {text: t.buttons.chart1Month, callback_data: 'chart_720'}
           ],
           [
-            { text: t.buttons.mainMenu, callback_data: 'menu' }
+            {text: t.buttons.mainMenu, callback_data: 'menu'}
           ]
         ]
       };
@@ -659,37 +830,39 @@ export class TelegramBot {
     const t = this.t(chatId);
     const version = packageJson.version || 'unknown';
     const message = `${t.help.title}\n\n` +
-      `${t.help.mainCommands}\n` +
-      `${t.help.start}\n` +
-      `${t.help.stop}\n` +
-      `${t.help.menu}\n\n` +
-      `${t.help.statusInfo}\n` +
-      `${t.help.status}\n` +
-      `${t.help.info}\n\n` +
-      `${t.help.charts}\n` +
-      `${t.help.chart}\n` +
-      `${t.help.chartWeek}\n` +
-      `${t.help.chartMonth}\n\n` +
-      `${t.help.other}\n` +
-      `${t.help.help}\n\n` +
-      `${t.help.useButtons}\n\n` +
-      `${t.help.autoNotify}\n\n` +
-      `${t.help.version} ${version}`;
-    
+        `${t.help.mainCommands}\n` +
+        `${t.help.start}\n` +
+        `${t.help.stop}\n` +
+        `${t.help.menu}\n\n` +
+        `${t.help.statusInfo}\n` +
+        `${t.help.status}\n` +
+        `${t.help.info}\n\n` +
+        `${t.help.charts}\n` +
+        `${t.help.chart}\n` +
+        `${t.help.chartWeek}\n` +
+        `${t.help.chartMonth}\n\n` +
+        `${t.help.other}\n` +
+        `${t.help.help}\n\n` +
+        `${t.help.useButtons}\n\n` +
+        `${t.help.autoNotify}\n\n` +
+        `${t.help.version} ${version}`;
+
     await this.sendMessage(chatId, message, this.getMainMenu(chatId));
   }
 
   private async handleLanguageSelection(chatId: string): Promise<void> {
     const t = this.t(chatId);
-    const currentLang = this.preferences.getLanguage(chatId);
+    const chatIdNum = parseInt(chatId, 10);
+    const isGroup = this.isGroupChat(chatIdNum);
+    const currentLang = this.preferences.getLanguage(chatId, isGroup ? 'uk' : 'en');
     const keyboard = {
       inline_keyboard: [
         [
-          { text: `🇺🇦 Українсьka${currentLang === 'uk' ? ' ✓' : ''}`, callback_data: 'lang_uk' },
-          { text: `🇬🇧 English${currentLang === 'en' ? ' ✓' : ''}`, callback_data: 'lang_en' }
+          {text: `🇺🇦 Українсьka${currentLang === 'uk' ? ' ✓' : ''}`, callback_data: 'lang_uk'},
+          {text: `🇬🇧 English${currentLang === 'en' ? ' ✓' : ''}`, callback_data: 'lang_en'}
         ],
         [
-          { text: t.buttons.mainMenu, callback_data: 'menu' }
+          {text: t.buttons.mainMenu, callback_data: 'menu'}
         ]
       ]
     };
