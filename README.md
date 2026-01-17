@@ -52,6 +52,7 @@ docker compose up -d
 
 Make sure to set `DOCKER_USER` in `docker-compose.yml` or as an environment variable.
 
+
 ### Using Docker Run
 
 You can also run the container directly with `docker run`:
@@ -80,11 +81,34 @@ docker run -d \
 - `/etc/localtime:/etc/localtime:ro` - System timezone for correct timestamps (read-only)
 - `/etc/timezone:/etc/timezone:ro` - System timezone configuration (read-only)
 
-**Note:** Make sure the `subscribers.json`, `status.json`, and `user-preferences.json` files exist before starting the container. They will be created automatically if missing, but it's better to create them with proper permissions:
+**Note:** It's recommended to create `subscribers.json`, `status.json`, and `user-preferences.json` files manually before the first run to avoid Docker volume issues (Docker may create directories instead of files if they don't exist).
+
+One-liner to create all required files:
 ```bash
-touch subscribers.json status.json user-preferences.json
-chmod 666 subscribers.json status.json user-preferences.json
+echo '[]' > subscribers.json && echo '{"currentStatus":null,"statusChangeTime":null,"totalOnTime":0,"totalOffTime":0,"sessionStartTime":"'$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")'"}' > status.json && echo '{}' > user-preferences.json && chmod 666 subscribers.json status.json user-preferences.json
 ```
+
+The application will automatically create these files if they don't exist, but manual creation is recommended.
+
+## Groups Support
+
+The bot supports both **private chats** and **Telegram groups**, but with different functionality:
+
+### Private Chats (Full Functionality)
+- ✅ All commands available (`/start`, `/stop`, `/status`, `/info`, `/menu`, `/chart`, etc.)
+- ✅ Interactive buttons and menus
+- ✅ Charts and history viewing
+- ✅ Language selection
+- ✅ Full notifications with details
+
+### Telegram Groups (Read-Only Mode)
+- ✅ **Notifications only** - Bot sends electricity appeared/disappeared notifications
+- ❌ **Commands disabled** - Most commands are not available in groups
+- ❌ **No charts/history** - Interactive features require private subscription
+- ✅ **Concise messages** - Group notifications are shorter (status + duration only)
+- ✅ **Default language** - Groups default to Ukrainian language
+
+**To use full features in groups:** Users should subscribe to the bot personally in a private chat by sending `/start` to the bot directly.
 
 ## Bot Commands
 
@@ -104,6 +128,8 @@ The `/info` command displays:
 - **System Status**: Current system state and device time
 
 All users who send `/start` will automatically receive notifications when electricity appears or disappears.
+
+**Note:** In Telegram groups, the bot works in read-only mode - it only sends notifications. For full functionality (charts, commands, history), users should subscribe personally in a private chat.
 
 ## Configuration
 

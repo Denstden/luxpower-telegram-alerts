@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from './logger';
+import { ensureJsonFileExists } from './file-utils';
 
 const SUBSCRIBERS_FILE = path.join(process.cwd(), 'subscribers.json');
 
@@ -8,16 +9,24 @@ export class SubscribersManager {
   private subscribers: Set<string> = new Set();
 
   constructor() {
+    this.ensureFileExists();
     this.load();
+  }
+
+  private ensureFileExists(): void {
+    ensureJsonFileExists(SUBSCRIBERS_FILE, '[]', 'subscribers.json');
   }
 
   private load(): void {
     try {
       if (fs.existsSync(SUBSCRIBERS_FILE)) {
-        const data = fs.readFileSync(SUBSCRIBERS_FILE, 'utf-8');
-        const chatIds = JSON.parse(data);
-        if (Array.isArray(chatIds)) {
-          this.subscribers = new Set(chatIds);
+        const stats = fs.statSync(SUBSCRIBERS_FILE);
+        if (stats.isFile()) {
+          const data = fs.readFileSync(SUBSCRIBERS_FILE, 'utf-8');
+          const chatIds = JSON.parse(data);
+          if (Array.isArray(chatIds)) {
+            this.subscribers = new Set(chatIds);
+          }
         }
       }
     } catch (error: any) {
@@ -36,11 +45,21 @@ export class SubscribersManager {
 
   add(chatId: string): boolean {
     if (this.subscribers.has(chatId)) {
+      logger.debug(`ChatId ${chatId} already in subscribers set`);
       return false;
     }
     this.subscribers.add(chatId);
     this.save();
+    logger.debug(`Added chatId ${chatId}, total subscribers: ${this.subscribers.size}`);
     return true;
+  }
+
+  forceAdd(chatId: string): boolean {
+    const wasPresent = this.subscribers.has(chatId);
+    this.subscribers.add(chatId);
+    this.save();
+    logger.debug(`Force added chatId ${chatId} (was present: ${wasPresent}), total subscribers: ${this.subscribers.size}`);
+    return !wasPresent;
   }
 
   remove(chatId: string): boolean {

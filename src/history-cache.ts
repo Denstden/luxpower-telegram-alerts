@@ -69,7 +69,7 @@ export class HistoryCache {
                 return false;
             }
 
-            const dateObj = new Date(date);
+            const dateObj = new Date(date + 'T00:00:00');
             const dayStart = new Date(dateObj);
             dayStart.setHours(0, 0, 0, 0);
             const dayEnd = new Date(dateObj);

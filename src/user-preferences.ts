@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from './logger';
 import { Language } from './translations';
+import { ensureJsonFileExists } from './file-utils';
 
 const PREFERENCES_FILE = path.join(process.cwd(), 'user-preferences.json');
 
@@ -17,14 +18,22 @@ export class UserPreferencesManager {
   private preferences: PreferencesData = {};
 
   constructor() {
+    this.ensureFileExists();
     this.load();
+  }
+
+  private ensureFileExists(): void {
+    ensureJsonFileExists(PREFERENCES_FILE, '{}', 'user-preferences.json');
   }
 
   private load(): void {
     try {
       if (fs.existsSync(PREFERENCES_FILE)) {
-        const data = fs.readFileSync(PREFERENCES_FILE, 'utf-8');
-        this.preferences = JSON.parse(data);
+        const stats = fs.statSync(PREFERENCES_FILE);
+        if (stats.isFile()) {
+          const data = fs.readFileSync(PREFERENCES_FILE, 'utf-8');
+          this.preferences = JSON.parse(data);
+        }
       }
     } catch (error: any) {
       logger.error(`Error loading user preferences: ${error.message}`);
@@ -39,8 +48,8 @@ export class UserPreferencesManager {
     }
   }
 
-  getLanguage(chatId: string): Language {
-    return this.preferences[chatId]?.language || 'en';
+  getLanguage(chatId: string, defaultLang: Language = 'en'): Language {
+    return this.preferences[chatId]?.language || defaultLang;
   }
 
   setLanguage(chatId: string, language: Language): void {
