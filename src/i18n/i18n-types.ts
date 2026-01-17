@@ -135,4 +135,9 @@ export type Translation = {
     electricityAppeared: string;
     electricityDisappeared: string;
   };
+  dateFormats: {
+    chartTimeDay: (hour: number, minute: number) => string;
+    chartDateWeek: (day: number, month: number) => string;
+    chartDateMonth: (day: number, month: number) => string;
+  };
 };
