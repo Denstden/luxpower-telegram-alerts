@@ -134,6 +134,23 @@ const en: Translation = {
     readonlyMessage: '🔇 This bot is read-only in groups.\n\n📊 To view charts, history, and use commands, please subscribe to the bot personally by sending /start in a private chat.',
     electricityAppeared: '⚡ <b>Lights Appeared!</b> Hooray! The lights are back! 🎉',
     electricityDisappeared: '🔌 <b>Lights Disappeared!</b> Oh no! The lights went out! 😞'
+  },
+  dateFormats: {
+    chartTimeDay: (hour: number, minute: number) => {
+      const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      const ampm = hour < 12 ? 'AM' : 'PM';
+      return `${hour12}:${minute.toString().padStart(2, '0')} ${ampm}`;
+    },
+    chartDateWeek: (day: number, month: number) => {
+      const date = new Date(2024, month - 1, day);
+      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+      return `${monthName} ${day}`;
+    },
+    chartDateMonth: (day: number, month: number) => {
+      const date = new Date(2024, month - 1, day);
+      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+      return `${monthName} ${day}`;
+    }
   }
 };
 

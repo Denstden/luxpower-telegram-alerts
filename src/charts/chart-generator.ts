@@ -118,17 +118,11 @@ export class ChartGenerator {
             let label = '';
             
             if (period === 'day') {
-                const hour = date.getHours();
-                const minute = date.getMinutes();
-                label = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                label = t.dateFormats.chartTimeDay(date.getHours(), date.getMinutes());
             } else if (period === 'week') {
-                const day = date.getDate();
-                const month = date.toLocaleDateString('en-US', { month: 'short' });
-                label = `${month} ${day}`;
+                label = t.dateFormats.chartDateWeek(date.getDate(), date.getMonth() + 1);
             } else {
-                const day = date.getDate();
-                const month = date.toLocaleDateString('en-US', { month: 'short' });
-                label = `${month} ${day}`;
+                label = t.dateFormats.chartDateMonth(date.getDate(), date.getMonth() + 1);
             }
             
             const x = leftPadding + (ratio * chartWidth);

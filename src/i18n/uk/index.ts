@@ -134,6 +134,17 @@ const uk: Translation = {
     readonlyMessage: '🔇 Цей бот працює лише для читання в групах.\n\n📊 Для перегляду графіків, історії та використання команд, будь ласка, підпишіться на бота особисто, надіславши /start в приватному чаті.',
     electricityAppeared: '⚡ <b>Світло з\'явилося!</b> Ура! 🎉',
     electricityDisappeared: '🔌 <b>Світло зникло!</b> От халепа! 😞'
+  },
+  dateFormats: {
+    chartTimeDay: (hour: number, minute: number) => {
+      return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+    },
+    chartDateWeek: (day: number, month: number) => {
+      return `${day.toString().padStart(2, '0')}.${month.toString().padStart(2, '0')}`;
+    },
+    chartDateMonth: (day: number, month: number) => {
+      return `${day.toString().padStart(2, '0')}.${month.toString().padStart(2, '0')}`;
+    }
   }
 };
 
