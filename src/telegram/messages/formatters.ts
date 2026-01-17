@@ -19,14 +19,23 @@ export class MessageFormatter {
       const secs = seconds % 60;
       return secs > 0 ? `${minutes}m ${secs}s` : `${minutes}m`;
     } else {
-      const hours = Math.floor(seconds / 3600);
-      const minutes = Math.floor((seconds % 3600) / 60);
-      const secs = seconds % 60;
+      const totalSeconds = seconds;
+      const years = Math.floor(totalSeconds / (365 * 24 * 3600));
+      const months = Math.floor((totalSeconds % (365 * 24 * 3600)) / (30 * 24 * 3600));
+      const days = Math.floor((totalSeconds % (30 * 24 * 3600)) / (24 * 3600));
+      const hours = Math.floor((totalSeconds % (24 * 3600)) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      
       const parts: string[] = [];
+      if (years > 0) parts.push(`${years}y`);
+      if (months > 0) parts.push(`${months}mo`);
+      if (days > 0) parts.push(`${days}d`);
       if (hours > 0) parts.push(`${hours}h`);
-      if (minutes > 0) parts.push(`${minutes}m`);
-      if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
-      return parts.join(' ');
+      if (minutes > 0 && parts.length < 3) parts.push(`${minutes}m`);
+      if (secs > 0 && parts.length === 0) parts.push(`${secs}s`);
+      
+      return parts.length > 0 ? parts.join(' ') : '0s';
     }
   }
 
@@ -149,12 +158,10 @@ export class MessageFormatter {
       }
 
       if (stats.sessionDuration > 0) {
-        const sessionHours = Math.floor(stats.sessionDuration / 3600);
-        const sessionMinutes = Math.floor((stats.sessionDuration % 3600) / 60);
         statusInfo += `\n${t.status.sessionStats}\n`;
         statusInfo += `${t.status.totalOnTime} ${this.formatDuration(stats.totalOnTime)}\n`;
         statusInfo += `${t.status.totalOffTime} ${this.formatDuration(stats.totalOffTime)}\n`;
-        statusInfo += `${t.status.sessionDuration} ${sessionHours > 0 ? `${sessionHours}h ` : ''}${sessionMinutes}m`;
+        statusInfo += `${t.status.sessionDuration} ${this.formatDuration(stats.sessionDuration)}`;
       }
     } else {
       statusInfo = `${t.status.title}\n\n${t.status.notAvailable}`;
