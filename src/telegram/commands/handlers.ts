@@ -2,7 +2,7 @@ import axios, {AxiosResponse} from 'axios';
 import { LuxpowerClient } from '../../luxpower';
 import { SubscribersManager, UserPreferencesManager } from '../../storage';
 import { ChartGenerator } from '../../charts';
-import { getTranslations, Language, logger } from '../../utils';
+import { getTranslations, Language, logger, formatDateTime } from '../../utils';
 import { MessageFormatter } from '../messages/formatters';
 import { KeyboardBuilder } from '../messages/keyboards';
 import FormData from 'form-data';
@@ -156,7 +156,7 @@ export class CommandHandlers {
             if (isGroup) {
               appearedMessage = `${t.group.electricityAppeared}\n${t.notifications.wasOffFor} ${this.formatter.formatDuration(testOffDuration)}`;
             } else {
-              appearedMessage = `${t.notifications.electricityAppeared}\n\n${t.notifications.gridPower} ${testGridPower.toFixed(2)} W\n${t.notifications.wasOffFor} ${this.formatter.formatDuration(testOffDuration)}\n${t.notifications.time} ${new Date().toLocaleString()}\n\n${t.notifications.useInfo}`;
+              appearedMessage = `${t.notifications.electricityAppeared}\n\n${t.notifications.gridPower} ${testGridPower.toFixed(2)} W\n${t.notifications.wasOffFor} ${this.formatter.formatDuration(testOffDuration)}\n${t.notifications.time} ${formatDateTime(new Date(), lang)}\n\n${t.notifications.useInfo}`;
               appearedKeyboard = this.keyboardBuilder.getNotificationKeyboard(lang);
             }
 
@@ -172,7 +172,7 @@ export class CommandHandlers {
             if (isGroup) {
               disappearedMessage = `${t.group.electricityDisappeared}\n${t.notifications.wasOnFor} ${this.formatter.formatDuration(testOnDuration)}`;
             } else {
-              disappearedMessage = `${t.notifications.electricityDisappeared}\n\n${t.notifications.wasOnFor} ${this.formatter.formatDuration(testOnDuration)}\n\n${t.notifications.time} ${new Date().toLocaleString()}\n\n${t.notifications.useInfo}`;
+              disappearedMessage = `${t.notifications.electricityDisappeared}\n\n${t.notifications.wasOnFor} ${this.formatter.formatDuration(testOnDuration)}\n\n${t.notifications.time} ${formatDateTime(new Date(), lang)}\n\n${t.notifications.useInfo}`;
               disappearedKeyboard = this.keyboardBuilder.getNotificationKeyboard(lang);
             }
 

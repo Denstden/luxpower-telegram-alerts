@@ -1,4 +1,4 @@
-import { getTranslations, Language } from '../../utils';
+import { getTranslations, Language, formatDateTime } from '../../utils';
 import { RuntimeData } from '../../luxpower';
 
 interface StatusTracker {
@@ -51,7 +51,18 @@ export class MessageFormatter {
     const epsPower = data.peps || 0;
     const consumptionPower = data.consumptionPower || 0;
     const statusText = data.statusText || 'unknown';
-    const deviceTime = data.deviceTime || 'N/A';
+    const deviceTimeRaw = data.deviceTime || 'N/A';
+    
+    let deviceTimeFormatted = deviceTimeRaw;
+    if (deviceTimeRaw !== 'N/A' && deviceTimeRaw) {
+      try {
+        const deviceDate = new Date(deviceTimeRaw.replace(' ', 'T'));
+        if (!isNaN(deviceDate.getTime())) {
+          deviceTimeFormatted = formatDateTime(deviceDate, lang);
+        }
+      } catch (e) {
+      }
+    }
 
     const gridVoltageNum = parseFloat(gridVoltage);
     const gridFrequency = data.fac ? data.fac / 100 : 0;
@@ -72,7 +83,7 @@ export class MessageFormatter {
     }
 
     let message = `${t.inverter.title}\n\n`;
-    message += `${t.inverter.time} ${deviceTime}\n`;
+    message += `${t.inverter.time} ${deviceTimeFormatted}\n`;
     message += `${t.inverter.systemStatus} ${statusText}\n`;
 
     if (stats && stats.currentDuration > 0) {
@@ -128,11 +139,11 @@ export class MessageFormatter {
       if (stats.statusChangeTime && stats.currentDuration >= 0) {
         const durationFormatted = this.formatDuration(stats.currentDuration);
         statusInfo += `${t.status.current} ${statusText} (${durationFormatted})\n`;
-        statusInfo += `${t.status.since} ${stats.statusChangeTime.toLocaleString()}\n`;
+        statusInfo += `${t.status.since} ${formatDateTime(stats.statusChangeTime, lang)}\n`;
       } else if (stats.statusChangeTime) {
         const durationFormatted = this.formatDuration(Math.abs(stats.currentDuration));
         statusInfo += `${t.status.current} ${statusText} (${durationFormatted})\n`;
-        statusInfo += `${t.status.since} ${stats.statusChangeTime.toLocaleString()}\n`;
+        statusInfo += `${t.status.since} ${formatDateTime(stats.statusChangeTime, lang)}\n`;
       } else {
         statusInfo += `${t.status.current} ${statusText}\n`;
       }

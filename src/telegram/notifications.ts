@@ -1,8 +1,7 @@
-import { LuxpowerClient } from '../luxpower';
-import { SubscribersManager, UserPreferencesManager } from '../storage';
-import { getTranslations, Language } from '../utils';
-import { KeyboardBuilder } from './messages/keyboards';
-import { MessageFormatter } from './messages/formatters';
+import {SubscribersManager, UserPreferencesManager} from '../storage';
+import {formatDateTime, getTranslations, Language} from '../utils';
+import {KeyboardBuilder} from './messages/keyboards';
+import {MessageFormatter} from './messages/formatters';
 
 export class NotificationService {
   private subscribers: SubscribersManager;
@@ -11,8 +10,8 @@ export class NotificationService {
   private formatter: MessageFormatter;
 
   constructor(
-    subscribers: SubscribersManager,
-    preferences: UserPreferencesManager
+      subscribers: SubscribersManager,
+      preferences: UserPreferencesManager
   ) {
     this.subscribers = subscribers;
     this.preferences = preferences;
@@ -32,9 +31,9 @@ export class NotificationService {
   }
 
   async notifyElectricityAppeared(
-    sendMessage: (chatId: string, text: string, keyboard?: any) => Promise<any>,
-    gridPower: number,
-    previousOffDuration: number = 0
+      sendMessage: (chatId: string, text: string, keyboard?: any) => Promise<any>,
+      gridPower: number,
+      previousOffDuration: number = 0
   ): Promise<void> {
     const chatIds = this.subscribers.getAll();
     for (const chatId of chatIds) {
@@ -51,17 +50,18 @@ export class NotificationService {
         message = `${t.group.electricityAppeared}${offDurationText}\n\n${t.group.readonlyMessage.split('\n\n')[1]}`;
       } else {
         const offDurationText = previousOffDuration > 0 ? `${t.notifications.wasOffFor} ${this.formatter.formatDuration(previousOffDuration)}` : '';
-        message = `${t.notifications.electricityAppeared}\n\n${t.notifications.gridPower} ${gridPower.toFixed(2)} W${offDurationText}\n${t.notifications.time} ${new Date().toLocaleString()}\n\n${t.notifications.useInfo}`;
+        message = `${t.notifications.electricityAppeared}\n\n${t.notifications.gridPower} ${gridPower.toFixed(2)} W${offDurationText}\n${t.notifications.time} ${formatDateTime(new Date(), lang)}\n\n${t.notifications.useInfo}`;
         keyboard = this.keyboardBuilder.getNotificationKeyboard(lang);
       }
 
-      await sendMessage(chatId, message, keyboard).catch(() => {});
+      await sendMessage(chatId, message, keyboard).catch(() => {
+      });
     }
   }
 
   async notifyElectricityDisappeared(
-    sendMessage: (chatId: string, text: string, keyboard?: any) => Promise<any>,
-    previousOnDuration: number = 0
+      sendMessage: (chatId: string, text: string, keyboard?: any) => Promise<any>,
+      previousOnDuration: number = 0
   ): Promise<void> {
     const chatIds = this.subscribers.getAll();
     for (const chatId of chatIds) {
@@ -78,11 +78,12 @@ export class NotificationService {
         message = `${t.group.electricityDisappeared}${onDurationText}\n\n${t.group.readonlyMessage.split('\n\n')[1]}`;
       } else {
         const onDurationText = previousOnDuration > 0 ? `${t.notifications.wasOnFor} ${this.formatter.formatDuration(previousOnDuration)}` : '';
-        message = `${t.notifications.electricityDisappeared}${onDurationText}\n\n${t.notifications.time} ${new Date().toLocaleString()}\n\n${t.notifications.useInfo}`;
+        message = `${t.notifications.electricityDisappeared}${onDurationText}\n\n${t.notifications.time} ${formatDateTime(new Date(), lang)}\n\n${t.notifications.useInfo}`;
         keyboard = this.keyboardBuilder.getNotificationKeyboard(lang);
       }
 
-      await sendMessage(chatId, message, keyboard).catch(() => {});
+      await sendMessage(chatId, message, keyboard).catch(() => {
+      });
     }
   }
 }
