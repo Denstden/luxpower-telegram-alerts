@@ -136,6 +136,21 @@ All users who send `/start` will automatically receive notifications when electr
 - `POLL_INTERVAL`: Polling interval in milliseconds (default: 30000 = 30 seconds)
 - `COMMAND_POLL_INTERVAL`: How often to check for bot commands (default: 1000 = 1 second)
 - `LUXPOWER_API_ENDPOINT`: API endpoint URL (default: https://eu.luxpowertek.com)
+- `ENABLE_TEST_NOTIFICATIONS`: Set to `true` to send test notifications after subscription (default: false)
 
 Subscribers are automatically saved to `subscribers.json` file (excluded from git).
 User language preferences are saved to `user-preferences.json` file (excluded from git).
+
+## Internationalization (i18n)
+
+The bot supports multiple languages using **typesafe-i18n** for type-safe translations:
+
+- **Supported languages**: English (en), Ukrainian (uk)
+- **Type safety**: All translation keys are validated at compile-time
+- **Structure**: Translations located in `src/i18n/{locale}/index.ts`
+- **Adding translations**:
+  1. Update `src/i18n/i18n-types.ts` to add new keys to the `Translation` type
+  2. Add translations for ALL locales in `src/i18n/en/index.ts` and `src/i18n/uk/index.ts`
+  3. TypeScript will error if any locale is missing a key
+- **Default language**: Groups default to Ukrainian, private chats default to English
+- **Runtime validation**: Ensures all locales have all required keys (throws error on startup if missing)

@@ -26,9 +26,15 @@ The codebase is organized into logical packages:
 
 #### `src/utils/` - Utilities
 - `logger.ts` - Logging utility
-- `translations.ts` - i18n translations (Ukrainian/English)
+- `translations.ts` - Translation helper (wraps typesafe-i18n)
 - `file-utils.ts` - File system utilities
 - `index.ts` - Package exports
+
+#### `src/i18n/` - Internationalization (typesafe-i18n)
+- `i18n-types.ts` - Type definitions for all translation keys (enforces structure)
+- `en/index.ts` - English translations
+- `uk/index.ts` - Ukrainian translations
+- Uses **typesafe-i18n** for compile-time type safety and validation
 
 #### `src/storage/` - Persistence Layer
 - `subscribers.ts` - Subscriber management (SubscribersManager)
@@ -82,6 +88,18 @@ The codebase is organized into logical packages:
 - **Fonts**: Alpine image includes `fontconfig` and `ttf-dejavu` for SVG chart rendering
 - **Production dependencies**: Final stage only installs production dependencies (`npm ci --only=production`)
 
+## Translations (i18n)
+
+- **Type-safe translations**: Uses typesafe-i18n for compile-time validation
+- **Structure**: Translations in `src/i18n/{locale}/index.ts` (e.g., `en/index.ts`, `uk/index.ts`)
+- **Type definitions**: `src/i18n/i18n-types.ts` defines the structure - all locales must match
+- **Adding translations**:
+  1. Add the key to `i18n-types.ts` in the `Translation` type
+  2. Add translations for ALL locales in `src/i18n/{locale}/index.ts`
+  3. TypeScript will error if any locale is missing a key
+- **Usage**: `import { getTranslations } from '../utils'; const t = getTranslations('en'); t.menu.mainMenu`
+- **Validation**: Runtime validation ensures all locales have all keys (throws error if missing)
+
 ## When Making Changes
 
 - **Keep it simple** - avoid over-engineering
@@ -89,6 +107,7 @@ The codebase is organized into logical packages:
 - **Use index exports** - export through package `index.ts` files for clean imports
 - **Test before committing** - use `npm run dev` to test changes
 - **Maintain separation** - keep concerns separated (API client, data processing, bot logic, etc.)
+- **Translation changes** - always update ALL locales when adding/removing translation keys
 - **Ensure `.gitignore`** - excludes sensitive files (JSON data files, .env)
 - **Update documentation** - update README if adding new features
 
