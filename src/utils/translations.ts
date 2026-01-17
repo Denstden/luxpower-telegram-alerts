@@ -4,18 +4,23 @@ import uk from '../i18n/uk/index';
 
 export type Language = Locales;
 
+export const DEFAULT_LANGUAGE: Language = 'en';
+export const DEFAULT_GROUP_LANGUAGE: Language = 'uk';
+export const DEFAULT_PRIVATE_LANGUAGE: Language = 'en';
+export const SUPPORTED_LANGUAGES: Language[] = [DEFAULT_PRIVATE_LANGUAGE, DEFAULT_GROUP_LANGUAGE];
+
 const translations: Record<Locales, Translation> = {
     en,
     uk,
 };
 
 function validateTranslations(): void {
-    const baseKeys = Object.keys(translations.en) as Array<keyof Translation>;
+    const baseKeys = Object.keys(translations[DEFAULT_LANGUAGE]) as Array<keyof Translation>;
 
     for (const locale of Object.keys(translations) as Locales[]) {
-        if (locale === 'en') continue;
+        if (locale === DEFAULT_LANGUAGE) continue;
 
-        const baseTranslation = translations.en;
+        const baseTranslation = translations[DEFAULT_LANGUAGE];
         const localeTranslation = translations[locale];
 
         for (const key of baseKeys) {
@@ -37,28 +42,33 @@ function validateTranslations(): void {
 
 validateTranslations();
 
-export function getTranslations(locale: Locales = 'en'): Translation {
+const LOCALE_STRINGS: Record<Locales, string> = {
+    en: 'en-US',
+    uk: 'uk-UA'
+};
+
+const HOUR12_FORMAT: Record<Locales, boolean> = {
+    en: true,
+    uk: false
+};
+
+const CHART_LEFT_PADDING: Record<Locales, number> = {
+    en: 60,
+    uk: 90
+};
+
+export function getTranslations(locale: Locales): Translation {
     return translations[locale];
 }
 
-export function formatDateTime(date: Date, lang: Language = 'en'): string {
-    if (lang === 'uk') {
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear();
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        const seconds = date.getSeconds().toString().padStart(2, '0');
-        return `${day}.${month}.${year}, ${hours}:${minutes}:${seconds}`;
-    } else {
-        return date.toLocaleString('en-US', {
-            month: 'numeric',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-        });
-    }
+export function getLocaleString(lang: Language): string {
+    return LOCALE_STRINGS[lang];
+}
+
+export function getHour12Format(lang: Language): boolean {
+    return HOUR12_FORMAT[lang];
+}
+
+export function getChartLeftPadding(lang: Language): number {
+    return CHART_LEFT_PADDING[lang];
 }

@@ -2,7 +2,15 @@ import axios from 'axios';
 import {LuxpowerClient} from '../../luxpower';
 import {SubscribersManager, UserPreferencesManager} from '../../storage';
 import {ChartGenerator} from '../../charts';
-import {formatDateTime, getTranslations, Language, logger} from '../../utils';
+import {
+    DEFAULT_GROUP_LANGUAGE,
+    DEFAULT_PRIVATE_LANGUAGE,
+    formatDateTime,
+    getTranslations,
+    Language,
+    logger,
+    SUPPORTED_LANGUAGES
+} from '../../utils';
 import {MessageFormatter} from '../messages/formatters';
 import {KeyboardBuilder} from '../messages/keyboards';
 import FormData from 'form-data';
@@ -61,7 +69,7 @@ export class CommandHandlers {
     private getLanguage(chatId: string): Language {
         const chatIdNum = parseInt(chatId, 10);
         const isGroup = this.isGroupChat(chatIdNum);
-        return this.preferences.getLanguage(chatId, isGroup ? 'uk' : 'en');
+        return this.preferences.getLanguage(chatId, isGroup ? DEFAULT_GROUP_LANGUAGE : DEFAULT_PRIVATE_LANGUAGE);
     }
 
     async handleInfo(
@@ -154,9 +162,9 @@ export class CommandHandlers {
                         let appearedKeyboard: any = undefined;
 
                         if (isGroup) {
-                            appearedMessage = `${t.group.electricityAppeared}\n${t.notifications.wasOffFor} ${this.formatter.formatDuration(testOffDuration)}`;
+                            appearedMessage = `${t.group.electricityAppeared}\n${t.notifications.wasOffFor} ${this.formatter.formatDuration(testOffDuration, lang)}`;
                         } else {
-                            appearedMessage = `${t.notifications.electricityAppeared}\n\n${t.notifications.gridPower} ${testGridPower.toFixed(2)} W\n${t.notifications.wasOffFor} ${this.formatter.formatDuration(testOffDuration)}\n${t.notifications.time} ${formatDateTime(new Date(), lang)}\n\n${t.notifications.useInfo}`;
+                            appearedMessage = `${t.notifications.electricityAppeared}\n\n${t.notifications.gridPower} ${testGridPower.toFixed(2)} W\n${t.notifications.wasOffFor} ${this.formatter.formatDuration(testOffDuration, lang)}\n${t.notifications.time} ${formatDateTime(new Date(), lang)}\n\n${t.notifications.useInfo}`;
                             appearedKeyboard = this.keyboardBuilder.getNotificationKeyboard(lang);
                         }
 
@@ -170,9 +178,9 @@ export class CommandHandlers {
                         let disappearedKeyboard: any = undefined;
 
                         if (isGroup) {
-                            disappearedMessage = `${t.group.electricityDisappeared}\n${t.notifications.wasOnFor} ${this.formatter.formatDuration(testOnDuration)}`;
+                            disappearedMessage = `${t.group.electricityDisappeared}\n${t.notifications.wasOnFor} ${this.formatter.formatDuration(testOnDuration, lang)}`;
                         } else {
-                            disappearedMessage = `${t.notifications.electricityDisappeared}\n\n${t.notifications.wasOnFor} ${this.formatter.formatDuration(testOnDuration)}\n\n${t.notifications.time} ${formatDateTime(new Date(), lang)}\n\n${t.notifications.useInfo}`;
+                            disappearedMessage = `${t.notifications.electricityDisappeared}\n\n${t.notifications.wasOnFor} ${this.formatter.formatDuration(testOnDuration, lang)}\n\n${t.notifications.time} ${formatDateTime(new Date(), lang)}\n\n${t.notifications.useInfo}`;
                             disappearedKeyboard = this.keyboardBuilder.getNotificationKeyboard(lang);
                         }
 
@@ -264,9 +272,9 @@ export class CommandHandlers {
         const t = getTranslations(lang);
         const chatIdNum = parseInt(chatId, 10);
         const isGroup = this.isGroupChat(chatIdNum);
-        const currentLang = this.preferences.getLanguage(chatId, isGroup ? 'uk' : 'en');
+        const currentLang = this.preferences.getLanguage(chatId, isGroup ? DEFAULT_GROUP_LANGUAGE : DEFAULT_PRIVATE_LANGUAGE);
         const keyboard = this.keyboardBuilder.getLanguageKeyboard(currentLang, lang);
-        await sendMessage(chatId, `${t.language.current} ${currentLang === 'uk' ? '🇺🇦 Українська' : '🇬🇧 English'}\n\n${t.language.select}`, keyboard);
+        await sendMessage(chatId, `${t.language.current} ${currentLang === DEFAULT_GROUP_LANGUAGE ? '🇺🇦 Українська' : '🇬🇧 English'}\n\n${t.language.select}`, keyboard);
     }
 
     async handleLanguageChange(
@@ -274,11 +282,11 @@ export class CommandHandlers {
         language: Language,
         sendMessage: (chatId: string, text: string, keyboard?: any) => Promise<any>
     ): Promise<void> {
-        if (language === 'uk' || language === 'en') {
+        if (SUPPORTED_LANGUAGES.includes(language)) {
             this.preferences.setLanguage(chatId, language);
             const lang = this.getLanguage(chatId);
             const t = getTranslations(lang);
-            await sendMessage(chatId, `${t.language.changed} ${language === 'uk' ? '🇺🇦 Українська' : '🇬🇧 English'}`, this.keyboardBuilder.getMainMenu(chatId, this.subscribers.has(chatId), lang));
+            await sendMessage(chatId, `${t.language.changed} ${language === DEFAULT_GROUP_LANGUAGE ? '🇺🇦 Українська' : '🇬🇧 English'}`, this.keyboardBuilder.getMainMenu(chatId, this.subscribers.has(chatId), lang));
         }
     }
 

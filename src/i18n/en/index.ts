@@ -72,6 +72,9 @@ const en: Translation = {
     charts: {
         generating: '📊 Generating chart for',
         title: '📊 <b>Electricity Status History</b>',
+        chartTitle: 'Electricity Status History',
+        chartOnLabel: 'ON',
+        chartOffLabel: 'OFF',
         greenOn: '🟢 Green = ON',
         redOff: '🔴 Red = OFF',
         noData: '❌ No history data available for',
@@ -85,6 +88,12 @@ const en: Translation = {
         period1Week: '1 Week',
         period1Month: '1 Month',
         periodHours: 'hours'
+    },
+    duration: {
+        days: 'd',
+        hours: 'h',
+        minutes: 'm',
+        seconds: 's'
     },
     subscribe: {
         subscribed: '✅ <b>Subscribed!</b>',
