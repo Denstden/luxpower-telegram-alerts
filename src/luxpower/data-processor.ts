@@ -1,4 +1,4 @@
-import { RuntimeData, ElectricityStatus, HistoryPoint } from './types';
+import {ElectricityStatus, HistoryPoint, RuntimeData} from './types';
 
 export class LuxpowerDataProcessor {
     processRuntimeData(data: RuntimeData): ElectricityStatus {
