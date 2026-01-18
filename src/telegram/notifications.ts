@@ -47,7 +47,7 @@ export class NotificationService {
 
             if (isGroup) {
                 const offDurationText = previousOffDuration > 0 ? `\n${t.notifications.wasOffFor} ${this.formatter.formatDuration(previousOffDuration, lang)}` : '';
-                message = `${t.group.electricityAppeared}${offDurationText}\n\n${t.group.readonlyMessage.split('\n\n')[1]}`;
+                message = `${t.group.electricityAppeared}${offDurationText}`;
             } else {
                 const offDurationText = previousOffDuration > 0 ? `${t.notifications.wasOffFor} ${this.formatter.formatDuration(previousOffDuration, lang)}` : '';
                 message = `${t.notifications.electricityAppeared}\n\n${t.notifications.gridPower} ${gridPower.toFixed(2)} W${offDurationText}\n${t.notifications.time} ${formatDateTime(new Date(), lang)}\n\n${t.notifications.useInfo}`;
@@ -75,7 +75,7 @@ export class NotificationService {
 
             if (isGroup) {
                 const onDurationText = previousOnDuration > 0 ? `\n${t.notifications.wasOnFor} ${this.formatter.formatDuration(previousOnDuration, lang)}` : '';
-                message = `${t.group.electricityDisappeared}${onDurationText}\n\n${t.group.readonlyMessage.split('\n\n')[1]}`;
+                message = `${t.group.electricityDisappeared}${onDurationText}`;
             } else {
                 const onDurationText = previousOnDuration > 0 ? `${t.notifications.wasOnFor} ${this.formatter.formatDuration(previousOnDuration, lang)}` : '';
                 message = `${t.notifications.electricityDisappeared}${onDurationText}\n\n${t.notifications.time} ${formatDateTime(new Date(), lang)}\n\n${t.notifications.useInfo}`;
