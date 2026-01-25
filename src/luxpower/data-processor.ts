@@ -11,7 +11,7 @@ export class LuxpowerDataProcessor {
         const powerToGrid = data.pToGrid || 0;
         const powerToUser = data.pToUser || 0;
 
-        const hasElectricity = gridVoltageNum > 180 && gridFrequency > 45 && gridFrequency < 55;
+        const hasElectricity = gridVoltageNum > 160 && gridFrequency > 45 && gridFrequency < 55;
 
         let gridPower = 0;
         if (powerToGrid > 0) {
