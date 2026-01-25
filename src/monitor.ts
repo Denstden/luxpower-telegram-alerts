@@ -71,15 +71,20 @@ async function checkStatus(): Promise<void> {
                 logger.info(`Last status change: ${persistedChangeTime.toLocaleString()}`);
 
                 if (persistedStatus !== status.hasElectricity) {
-                    logger.info(`Status changed since last run. Updating...`);
                     const now = new Date();
                     const duration = Math.floor((now.getTime() - persistedChangeTime.getTime()) / 1000);
+                    logger.info(
+                        `Status changed since last run. Persisted: ${persistedStatus ? 'ON' : 'OFF'}, Current: ${status.hasElectricity ? 'ON' : 'OFF'}, Grid Power: ${status.gridPower.toFixed(2)} W, Last change: ${persistedChangeTime.toISOString()}, Now: ${now.toISOString()}, Duration: ${duration}s`
+                    );
+                    logger.info(`Luxpower runtime data: ${JSON.stringify(status.rawData)}`);
 
                     if (status.hasElectricity) {
                         statusPersistence.updateStatus(true, now, 0, duration);
+                        logger.info(`Decision: notify appeared (status changed since last run)`);
                         await telegram.notifyElectricityAppeared(status.gridPower, duration);
                     } else {
                         statusPersistence.updateStatus(false, now, duration, 0);
+                        logger.info(`Decision: notify disappeared (status changed since last run)`);
                         await telegram.notifyElectricityDisappeared(duration);
                     }
                 }
@@ -99,14 +104,20 @@ async function checkStatus(): Promise<void> {
             const now = new Date();
             const persistedChangeTime = statusPersistence.getStatusChangeTime();
             const duration = persistedChangeTime ? Math.floor((now.getTime() - persistedChangeTime.getTime()) / 1000) : 0;
+            const subscribers = telegram.getSubscriberCount();
+
+            logger.info(
+                `Status change detected. Previous: ${previousStatus ? 'ON' : 'OFF'}, Current: ${status.hasElectricity ? 'ON' : 'OFF'}, Grid Power: ${status.gridPower.toFixed(2)} W, Last change: ${persistedChangeTime ? persistedChangeTime.toISOString() : 'unknown'}, Now: ${now.toISOString()}, Duration: ${duration}s`
+            );
+            logger.info(`Luxpower runtime data: ${JSON.stringify(status.rawData)}`);
 
             if (status.hasElectricity) {
                 statusPersistence.updateStatus(true, now, 0, duration);
-                logger.info(`Electricity appeared! Sending notification to ${telegram.getSubscriberCount()} subscriber(s)...`);
+                logger.info(`Electricity appeared! Sending notification to ${subscribers} subscriber(s)...`);
                 await telegram.notifyElectricityAppeared(status.gridPower, duration);
             } else {
                 statusPersistence.updateStatus(false, now, duration, 0);
-                logger.info(`Electricity disappeared! Sending notification to ${telegram.getSubscriberCount()} subscriber(s)...`);
+                logger.info(`Electricity disappeared! Sending notification to ${subscribers} subscriber(s)...`);
                 await telegram.notifyElectricityDisappeared(duration);
             }
             previousStatus = status.hasElectricity;
