@@ -98,25 +98,53 @@ export class TelegramBot {
     }
 
     async sendMessage(chatId: string, text: string, replyMarkup?: any): Promise<TelegramResponse> {
-        try {
-            const response: AxiosResponse<TelegramResponse> = await axios.post(
-                `${this.apiUrl}/sendMessage`,
-                {
-                    chat_id: chatId,
-                    text: text,
-                    parse_mode: 'HTML',
-                    reply_markup: replyMarkup
-                }
-            );
+        const maxAttempts = 3;
+        const retryDelayMs = 3000;
 
-            return response.data;
-        } catch (error: any) {
-            logger.error(`Telegram send message error to ${chatId}: ${error.message}`);
-            if (error.response) {
-                logger.debug(`Response data: ${JSON.stringify(error.response.data)}`);
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const response: AxiosResponse<TelegramResponse> = await axios.post(
+                    `${this.apiUrl}/sendMessage`,
+                    {
+                        chat_id: chatId,
+                        text: text,
+                        parse_mode: 'HTML',
+                        reply_markup: replyMarkup
+                    }
+                );
+
+                return response.data;
+            } catch (error: any) {
+                const status = error?.response?.status;
+                const errorCode = error?.code;
+
+                logger.error(`Telegram send message error to ${chatId}: ${error.message}`);
+                if (errorCode) {
+                    logger.error(`Telegram send message error code to ${chatId}: ${errorCode}`);
+                }
+                if (status) {
+                    logger.error(`Telegram send message status to ${chatId}: ${status}`);
+                }
+                if (error.response?.data) {
+                    logger.error(`Telegram send message response to ${chatId}: ${JSON.stringify(error.response.data)}`);
+                }
+
+                if (status === 403) {
+                    throw error;
+                }
+
+                if (attempt < maxAttempts) {
+                    const nextAttempt = attempt + 1;
+                    logger.warn(`Retrying Telegram sendMessage to ${chatId} in ${retryDelayMs}ms (attempt ${nextAttempt}/${maxAttempts})`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+                    continue;
+                }
+
+                throw error;
             }
-            throw error;
         }
+
+        throw new Error(`Failed to send Telegram message to ${chatId} after ${maxAttempts} attempts`);
     }
 
     async notifyElectricityAppeared(gridPower: number, previousOffDuration: number = 0): Promise<void> {
